@@ -1,7 +1,7 @@
 import SwiftUI
 
 @main
-struct CodemotoApp: App {
+struct LittleWhileApp: App {
     var body: some Scene {
         WindowGroup {
             AppView()
