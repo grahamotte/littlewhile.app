@@ -1,5 +1,5 @@
 {
-  "build": "0.1.0",
+  "build": "0.1.1",
   "contactEmail": "go@graham.lol",
   "contactFirstName": "Graham",
   "contactLastName": "Otte",
@@ -48,6 +48,6 @@
       }
     }
   },
-  "version": "0.1.0",
-  "whatsNew": "Initial version."
+  "version": "0.1.1",
+  "whatsNew": "Initial release with configurable focus timers, persistent history, completion alerts, and Live Activities."
 }
