@@ -26,7 +26,20 @@
         "platform": "IOS",
         "project": "apps/apple/App.xcodeproj",
         "scheme": "App",
-        "screenshots": [],
+        "screenshots": [
+          {
+            "displayType": "APP_IPHONE_61",
+            "path": "assets/screenshots/iphone-focus.jpg"
+          },
+          {
+            "displayType": "APP_IPHONE_61",
+            "path": "assets/screenshots/iphone-settings.jpg"
+          },
+          {
+            "displayType": "APP_IPHONE_61",
+            "path": "assets/screenshots/iphone-complete.jpg"
+          }
+        ],
         "simulatorDestination": "generic/platform=iOS Simulator",
         "simulatorProduct": "Debug-iphonesimulator/App.app",
         "simulators": {
