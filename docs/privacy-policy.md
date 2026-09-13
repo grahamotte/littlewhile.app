@@ -1,35 +1,21 @@
 # Privacy Policy
 
-Effective date: 2026-08-02
+Effective date: 2026-09-13
 
-Code Moto is a focus timer developed by Graham Otte. This Privacy Policy explains how Code Moto handles information.
+Little While is a focus timer developed by Graham Otte. Your privacy is simple: Little While does not collect any data.
 
-## Information collection
+## Your data stays on your device
 
-Code Moto does not require an account or sign-in and does not collect personal information.
+Little While does not require an account and does not collect, transmit, or share personal information. The app has no analytics, advertising, or tracking.
 
-The app stores your completed session count and preferences locally on your device. This information is not sent to the developer or any third party.
+Your timer settings, themes, and run history are stored only on your device. Alarms, notifications, and Live Activities are also handled on your device using Apple system features. The developer cannot access this information.
 
-## Analytics and advertising
-
-Code Moto does not include advertising, analytics, tracking, or crash-reporting services.
-
-## Data sharing
-
-Code Moto does not sell, rent, or share personal information.
-
-## Data retention and deletion
-
-Your session data and preferences remain on your device until you clear the app's data or uninstall the app.
-
-## Children's privacy
-
-Code Moto is not directed to children under 13 and does not knowingly collect personal information from children.
+You can delete individual runs from your history. Uninstalling Little While deletes the app's locally stored data.
 
 ## Changes to this policy
 
-This Privacy Policy may be updated from time to time. The updated policy will be posted with a revised effective date.
+If this policy changes, the updated version will be posted here with a new effective date.
 
 ## Contact
 
-If you have questions about this Privacy Policy, contact: Graham Otte
+If you have questions about this Privacy Policy, contact Graham Otte through the Little While App Store listing.
