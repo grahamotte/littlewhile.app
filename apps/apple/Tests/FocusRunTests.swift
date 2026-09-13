@@ -9,7 +9,7 @@ final class FocusRunTests: XCTestCase {
 
         XCTAssertEqual(run.createdAt, date)
         XCTAssertEqual(run.goalSeconds, 1_500)
-        XCTAssertEqual(run.theme, "standard")
+        XCTAssertEqual(run.theme, "boring")
         XCTAssertEqual(run.elapsed(at: date), 0)
         XCTAssertEqual(run.remaining(at: date), 1_500)
         XCTAssertEqual(run.fraction(at: date), 0)

@@ -6,7 +6,7 @@ struct FocusRun: Identifiable, Codable, Equatable {
     var startedAt: Date?
     var progressSeconds: TimeInterval = 0
     var goalSeconds: Int = 25 * 60
-    var theme: String = "standard"
+    var theme: String = "boring"
     var resumedAt: Date?
 
     var isRunning: Bool {

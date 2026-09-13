@@ -13,12 +13,12 @@ struct TimerTheme: Identifiable {
 enum TimerThemes {
     static let all: [TimerTheme] = [
         TimerTheme(
-            id: "standard",
-            name: "Standard",
-            subtitle: "A little space to focus.",
+            id: "boring",
+            name: "Boring",
+            subtitle: "Just a timer.",
             colorScheme: .light,
-            preview: AnyView(StandardThemePreview()),
-            screen: { AnyView(StandardTimerView(snapshot: $0)) },
+            preview: AnyView(BoringThemePreview()),
+            screen: { AnyView(BoringTimerView(snapshot: $0)) },
         ),
     ]
 

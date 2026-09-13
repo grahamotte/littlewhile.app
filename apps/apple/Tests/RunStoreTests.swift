@@ -14,7 +14,7 @@ final class RunStoreTests: XCTestCase {
             XCTAssertTrue(store.history.isEmpty)
             XCTAssertEqual(store.currentRun.createdAt, date)
             XCTAssertEqual(store.currentRun.goalSeconds, 1_500)
-            XCTAssertEqual(store.currentRun.theme, "standard")
+            XCTAssertEqual(store.currentRun.theme, "boring")
             XCTAssertFalse(store.currentRun.hasStarted)
             XCTAssertFalse(store.currentRun.isRunning)
             XCTAssertEqual(try savedRuns(defaults), store.runs)
@@ -112,7 +112,7 @@ final class RunStoreTests: XCTestCase {
     func testCompletionStopsAtGoalAndCannotBeStartedAgain() async throws {
         try withDefaults { defaults in
             let store = RunStore(defaults: defaults, now: date)
-            store.createRun(minutes: 1, theme: "standard", at: date)
+            store.createRun(minutes: 1, theme: "boring", at: date)
             let identifier = store.currentRun.id
             store.start(at: date)
 
@@ -159,7 +159,7 @@ final class RunStoreTests: XCTestCase {
             XCTAssertEqual(store.history.count, 1)
             XCTAssertEqual(store.history[0].id, originalIdentifier)
             XCTAssertEqual(store.history[0].progressSeconds, 90.25)
-            XCTAssertEqual(store.history[0].theme, "standard")
+            XCTAssertEqual(store.history[0].theme, "boring")
             XCTAssertFalse(store.history[0].isRunning)
             XCTAssertEqual(try savedRuns(defaults), store.runs)
         }
@@ -169,10 +169,10 @@ final class RunStoreTests: XCTestCase {
         withDefaults { defaults in
             let store = RunStore(defaults: defaults, now: date)
             let first = store.currentRun.id
-            store.createRun(minutes: 10, theme: "standard", at: date.addingTimeInterval(1))
+            store.createRun(minutes: 10, theme: "boring", at: date.addingTimeInterval(1))
             let second = store.currentRun.id
 
-            store.createRun(minutes: 15, theme: "standard", at: date.addingTimeInterval(2))
+            store.createRun(minutes: 15, theme: "boring", at: date.addingTimeInterval(2))
 
             XCTAssertEqual(store.history.map(\.id), [second, first])
             XCTAssertTrue(store.history.allSatisfy { !$0.hasStarted && $0.progressSeconds == 0 })
@@ -183,23 +183,35 @@ final class RunStoreTests: XCTestCase {
         withDefaults { defaults in
             let store = RunStore(defaults: defaults, now: date)
 
-            store.createRun(minutes: Int.min, theme: "standard", at: date)
+            store.createRun(minutes: Int.min, theme: "boring", at: date)
             XCTAssertEqual(store.currentRun.goalSeconds, 60)
-            store.createRun(minutes: Int.max, theme: "standard", at: date)
+            store.createRun(minutes: Int.max, theme: "boring", at: date)
             XCTAssertEqual(store.currentRun.goalSeconds, 7_200)
-            store.createRun(minutes: 25, theme: "standard", at: date)
+            store.createRun(minutes: 25, theme: "boring", at: date)
             XCTAssertEqual(store.currentRun.goalSeconds, 1_500)
         }
     }
 
-    func testBlankThemeUsesStandardAndUnknownThemesArePreserved() async {
+    func testBlankThemeUsesBoringAndUnknownThemesArePreserved() async {
         withDefaults { defaults in
             let store = RunStore(defaults: defaults, now: date)
 
             store.createRun(minutes: 25, theme: " \n\t ", at: date)
-            XCTAssertEqual(store.currentRun.theme, "standard")
+            XCTAssertEqual(store.currentRun.theme, "boring")
             store.createRun(minutes: 25, theme: "garden", at: date)
             XCTAssertEqual(store.currentRun.theme, "garden")
+        }
+    }
+
+    func testRestorationMigratesStandardThemeToBoring() async throws {
+        try withDefaults { defaults in
+            let run = FocusRun(createdAt: date, theme: "standard")
+            defaults.set(try JSONEncoder().encode([run]), forKey: storageKey)
+
+            let store = RunStore(defaults: defaults, now: date)
+
+            XCTAssertEqual(store.currentRun.theme, "boring")
+            XCTAssertEqual(try savedRuns(defaults), store.runs)
         }
     }
 
@@ -229,9 +241,9 @@ final class RunStoreTests: XCTestCase {
         try withDefaults { defaults in
             let store = RunStore(defaults: defaults, now: date)
             let firstIdentifier = store.currentRun.id
-            store.createRun(minutes: 20, theme: "standard", at: date.addingTimeInterval(1))
+            store.createRun(minutes: 20, theme: "boring", at: date.addingTimeInterval(1))
             let secondIdentifier = store.currentRun.id
-            store.createRun(minutes: 30, theme: "standard", at: date.addingTimeInterval(2))
+            store.createRun(minutes: 30, theme: "boring", at: date.addingTimeInterval(2))
             let currentIdentifier = store.currentRun.id
 
             store.deleteRun(id: secondIdentifier)
@@ -363,7 +375,7 @@ final class RunStoreTests: XCTestCase {
             XCTAssertEqual(store.currentRun.id, newest.id)
             XCTAssertEqual(store.currentRun.goalSeconds, 60)
             XCTAssertEqual(store.currentRun.progressSeconds, 0)
-            XCTAssertEqual(store.currentRun.theme, "standard")
+            XCTAssertEqual(store.currentRun.theme, "boring")
             XCTAssertEqual(store.history[0].id, older.id)
             XCTAssertEqual(store.history[0].goalSeconds, 7_200)
             XCTAssertEqual(store.history[0].progressSeconds, 7_200)

@@ -28,8 +28,8 @@ final class RunStore {
                 run.progressSeconds = run.progressSeconds.isFinite
                     ? min(TimeInterval(run.goalSeconds), max(0, run.progressSeconds))
                     : 0
-                if run.theme.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                    run.theme = "standard"
+                if run.theme.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || run.theme == "standard" {
+                    run.theme = "boring"
                 }
                 if !run.createdAt.timeIntervalSinceReferenceDate.isFinite {
                     run.createdAt = now
@@ -96,7 +96,7 @@ final class RunStore {
 
     func createRun(minutes: Int, theme: String, at date: Date = .now) {
         pause(at: date)
-        let selectedTheme = theme.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "standard" : theme
+        let selectedTheme = theme.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "boring" : theme
         runs.insert(
             FocusRun(createdAt: date, goalSeconds: min(120, max(1, minutes)) * 60, theme: selectedTheme),
             at: 0,
