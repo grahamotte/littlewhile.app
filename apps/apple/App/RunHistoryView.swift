@@ -9,37 +9,34 @@ struct RunHistoryView: View {
         VStack(spacing: 0) {
             header
 
-            if store.history.isEmpty {
-                emptyState
-            } else {
+            TimelineView(.periodic(from: .now, by: 1)) { context in
                 List {
-                    ForEach(store.history) { run in
-                        historyRow(run)
-                            .listRowInsets(EdgeInsets(top: 6, leading: 24, bottom: 6, trailing: 24))
-                            .listRowSeparator(.hidden)
-                            .listRowBackground(Color.clear)
-                            .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                                Button("Delete", systemImage: "trash", role: .destructive) {
+                    ForEach(store.visibleRuns(at: context.date)) { run in
+                        if run.id == store.currentRun.id {
+                            historyRow(run, isCurrent: true, at: context.date)
+                                .listRowInsets(EdgeInsets(top: 6, leading: 24, bottom: 6, trailing: 24))
+                                .listRowSeparator(.hidden)
+                                .listRowBackground(Color.clear)
+                        } else {
+                            historyRow(run, isCurrent: false, at: context.date)
+                                .listRowInsets(EdgeInsets(top: 6, leading: 24, bottom: 6, trailing: 24))
+                                .listRowSeparator(.hidden)
+                                .listRowBackground(Color.clear)
+                                .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                                    Button("Delete", systemImage: "trash", role: .destructive) {
+                                        store.deleteRun(id: run.id)
+                                    }
+                                }
+                                .contextMenu {
+                                    Button("Delete run", systemImage: "trash", role: .destructive) {
+                                        store.deleteRun(id: run.id)
+                                    }
+                                }
+                                .accessibilityAction(named: Text("Delete run")) {
                                     store.deleteRun(id: run.id)
                                 }
-                            }
-                            .contextMenu {
-                                Button("Delete run", systemImage: "trash", role: .destructive) {
-                                    store.deleteRun(id: run.id)
-                                }
-                            }
-                            .accessibilityAction(named: Text("Delete run")) {
-                                store.deleteRun(id: run.id)
-                            }
+                        }
                     }
-
-                    Text("Every little while counts.")
-                        .font(.footnote)
-                        .foregroundStyle(.tertiary)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 20)
-                        .listRowSeparator(.hidden)
-                        .listRowBackground(Color.clear)
                 }
                 .listStyle(.plain)
                 .scrollContentBackground(.hidden)
@@ -49,15 +46,9 @@ struct RunHistoryView: View {
     }
 
     private var header: some View {
-        HStack(alignment: .top, spacing: 16) {
-            VStack(alignment: .leading, spacing: 8) {
-                Text("History")
-                    .font(.system(.largeTitle, design: .rounded, weight: .semibold))
-
-                Text("Time you made for yourself.")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-            }
+        HStack(spacing: 16) {
+            Text("History")
+                .font(.system(.largeTitle, design: .rounded, weight: .semibold))
 
             Spacer(minLength: 0)
 
@@ -70,37 +61,8 @@ struct RunHistoryView: View {
         .padding(.bottom, 26)
     }
 
-    private var emptyState: some View {
-        VStack(spacing: 18) {
-            Spacer()
-
-            Image(systemName: "clock.arrow.circlepath")
-                .font(.system(size: 35, weight: .light))
-                .foregroundStyle(.secondary)
-                .frame(width: 92, height: 92)
-                .background(.primary.opacity(0.04), in: Circle())
-                .padding(.bottom, 4)
-                .accessibilityHidden(true)
-
-            Text("A little time adds up.")
-                .font(.system(.title2, design: .rounded, weight: .medium))
-
-            Text("When you set your next timer,\nyour previous run will appear here.")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-                .fixedSize(horizontal: false, vertical: true)
-
-            Spacer()
-            Spacer()
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.horizontal, 28)
-    }
-
-    private func historyRow(_ run: FocusRun) -> some View {
-        let now = Date.now
-        let complete = run.isComplete(at: now)
+    private func historyRow(_ run: FocusRun, isCurrent: Bool, at date: Date) -> some View {
+        let complete = run.isComplete(at: date)
 
         return VStack(alignment: .leading, spacing: 17) {
             HStack(alignment: .top, spacing: 14) {
@@ -110,7 +72,7 @@ struct RunHistoryView: View {
                         .foregroundStyle(.secondary)
 
                     HStack(alignment: .firstTextBaseline, spacing: 5) {
-                        Text(Duration.seconds(run.elapsed(at: now)).formatted(.time(pattern: .minuteSecond)))
+                        Text(Duration.seconds(run.elapsed(at: date)).formatted(.time(pattern: .minuteSecond)))
                             .font(.system(.title2, design: .rounded, weight: .medium))
 
                         Text("of \(Duration.seconds(run.goalSeconds).formatted(.time(pattern: .minuteSecond)))")
@@ -130,7 +92,7 @@ struct RunHistoryView: View {
                     .accessibilityHidden(true)
             }
 
-            ProgressView(value: run.fraction(at: now))
+            ProgressView(value: run.fraction(at: date))
                 .tint(.primary.opacity(0.65))
                 .accessibilityLabel("Run progress")
 
@@ -139,7 +101,7 @@ struct RunHistoryView: View {
 
                 Spacer()
 
-                Text(complete ? "Completed" : (run.hasStarted ? "Finished early" : "Not started"))
+                Text(isCurrent ? "Current" : (complete ? "Completed" : "Finished early"))
             }
             .font(.caption)
             .foregroundStyle(.secondary)

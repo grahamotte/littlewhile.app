@@ -179,6 +179,31 @@ final class RunStoreTests: XCTestCase {
         }
     }
 
+    func testVisibleRunsIncludesCurrentAndOmitsUnstartedHistory() async {
+        withDefaults { defaults in
+            let store = RunStore(defaults: defaults, now: date)
+            let unstartedIdentifier = store.currentRun.id
+            store.createRun(minutes: 10, theme: "boring", at: date.addingTimeInterval(1))
+            let startedIdentifier = store.currentRun.id
+            store.start(at: date.addingTimeInterval(2))
+            store.pause(at: date.addingTimeInterval(32))
+            store.createRun(minutes: 15, theme: "boring", at: date.addingTimeInterval(33))
+            let currentIdentifier = store.currentRun.id
+
+            let visibleRuns = store.visibleRuns(at: date.addingTimeInterval(33))
+
+            XCTAssertEqual(visibleRuns.map(\.id), [currentIdentifier, startedIdentifier])
+            XCTAssertEqual(visibleRuns[0].fraction(at: date.addingTimeInterval(33)), 0)
+            XCTAssertFalse(visibleRuns.map(\.id).contains(unstartedIdentifier))
+
+            store.start(at: date.addingTimeInterval(34))
+            let progressedRuns = store.visibleRuns(at: date.addingTimeInterval(64))
+
+            XCTAssertEqual(progressedRuns.map(\.id), [currentIdentifier, startedIdentifier])
+            XCTAssertEqual(progressedRuns[0].fraction(at: date.addingTimeInterval(64)), 30.0 / 900.0)
+        }
+    }
+
     func testMinuteBoundsAreClampedBeforeMultiplication() async {
         withDefaults { defaults in
             let store = RunStore(defaults: defaults, now: date)

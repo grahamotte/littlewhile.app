@@ -31,17 +31,9 @@ struct RunSettingsView: View {
         }
         .background(.background)
         .safeAreaInset(edge: .bottom, spacing: 0) {
-            VStack(spacing: 14) {
-                GlassActionButton(title: "Set") {
-                    onSet(selectedMinute ?? 25, selectedTheme)
-                    dismiss()
-                }
-
-                Text("A fresh timer, ready when you are.\nYour previous run stays in History.")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-                    .fixedSize(horizontal: false, vertical: true)
+            GlassActionButton(title: "Set") {
+                onSet(selectedMinute ?? 25, selectedTheme)
+                dismiss()
             }
             .frame(maxWidth: .infinity)
             .padding(.horizontal, 28)
@@ -54,15 +46,9 @@ struct RunSettingsView: View {
     }
 
     private var header: some View {
-        HStack(alignment: .top, spacing: 16) {
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Settings")
-                    .font(.system(.largeTitle, design: .rounded, weight: .semibold))
-
-                Text("A little time, just for you.")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-            }
+        HStack(spacing: 16) {
+            Text("Settings")
+                .font(.system(.largeTitle, design: .rounded, weight: .semibold))
 
             Spacer(minLength: 0)
 
@@ -142,28 +128,15 @@ struct RunSettingsView: View {
                 }
             }
             .frame(height: 220)
-
-            Text(TimerThemes.resolve(selectedTheme).subtitle)
-                .font(.footnote)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-                .frame(maxWidth: .infinity)
-                .padding(.horizontal, 28)
         }
     }
 
     private var minuteSelector: some View {
         VStack(spacing: 18) {
-            HStack {
-                Text("Duration")
-                    .font(.headline)
-                Spacer()
-                Text("MINUTES")
-                    .font(.system(size: 10, weight: .semibold, design: .rounded))
-                    .tracking(1.8)
-                    .foregroundStyle(.tertiary)
-            }
-            .padding(.horizontal, 28)
+            Text("Duration")
+                .font(.headline)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 28)
 
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Text("\(selectedMinute ?? 25)")

@@ -16,6 +16,10 @@ final class RunStore {
         Array(runs.dropFirst())
     }
 
+    func visibleRuns(at date: Date = .now) -> [FocusRun] {
+        runs.filter { $0.id == currentRun.id || $0.fraction(at: date) > 0 }
+    }
+
     init(defaults: UserDefaults = .standard, now: Date = .now) {
         self.defaults = defaults
         var restored: [FocusRun] = []

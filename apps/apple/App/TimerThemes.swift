@@ -3,7 +3,6 @@ import SwiftUI
 struct TimerTheme: Identifiable {
     let id: String
     let name: String
-    let subtitle: String
     let colorScheme: ColorScheme
     let preview: AnyView
     let screen: (TimerSnapshot) -> AnyView
@@ -15,7 +14,6 @@ enum TimerThemes {
         TimerTheme(
             id: "boring",
             name: "Boring",
-            subtitle: "Just a timer.",
             colorScheme: .light,
             preview: AnyView(BoringThemePreview()),
             screen: { AnyView(BoringTimerView(snapshot: $0)) },
