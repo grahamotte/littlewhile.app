@@ -18,12 +18,12 @@
 		};
 		A10000000000000000000002 = {
 			isa = PBXGroup;
-			children = (A10000000000000000000001, A10000000000000000000003,);
+			children = (A10000000000000000000001, C10000000000000000000001, B10000000000000000000001, A10000000000000000000003,);
 			sourceTree = "<group>";
 		};
 		A10000000000000000000003 = {
 			isa = PBXGroup;
-			children = (A10000000000000000000004,);
+			children = (A10000000000000000000004, B10000000000000000000004,);
 			name = Products;
 			sourceTree = "<group>";
 		};
@@ -34,9 +34,9 @@
 		A1000000000000000000000C = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = A10000000000000000000011;
-			buildPhases = (A10000000000000000000006, A10000000000000000000007, A10000000000000000000008,);
-			dependencies = ();
-			fileSystemSynchronizedGroups = (A10000000000000000000001,);
+			buildPhases = (A10000000000000000000006, A10000000000000000000007, A10000000000000000000008, B10000000000000000000009,);
+			dependencies = (B1000000000000000000000A,);
+			fileSystemSynchronizedGroups = (A10000000000000000000001, C10000000000000000000001,);
 			name = App;
 			productName = App;
 			productReference = A10000000000000000000004;
@@ -53,12 +53,12 @@
 			productRefGroup = A10000000000000000000003;
 			projectDirPath = "";
 			projectRoot = "";
-			targets = (A1000000000000000000000C,);
+			targets = (A1000000000000000000000C, B1000000000000000000000C,);
 		};
 		A10000000000000000000010 = {isa = XCConfigurationList; buildConfigurations = (A10000000000000000000013, A10000000000000000000014,); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
 		A10000000000000000000011 = {isa = XCConfigurationList; buildConfigurations = (A10000000000000000000015, A10000000000000000000016,); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
-		A10000000000000000000013 = {isa = XCBuildConfiguration; buildSettings = {CLANG_ENABLE_MODULES = YES; SWIFT_VERSION = 5.0; }; name = Debug; };
-		A10000000000000000000014 = {isa = XCBuildConfiguration; buildSettings = {CLANG_ENABLE_MODULES = YES; SWIFT_COMPILATION_MODE = wholemodule; SWIFT_VERSION = 5.0; }; name = Release; };
+		A10000000000000000000013 = {isa = XCBuildConfiguration; buildSettings = {APP_BUNDLE_IDENTIFIER = app.littlewhile; CLANG_ENABLE_MODULES = YES; SWIFT_VERSION = 5.0; }; name = Debug; };
+		A10000000000000000000014 = {isa = XCBuildConfiguration; buildSettings = {APP_BUNDLE_IDENTIFIER = app.littlewhile; CLANG_ENABLE_MODULES = YES; SWIFT_COMPILATION_MODE = wholemodule; SWIFT_VERSION = 5.0; }; name = Release; };
 		A10000000000000000000015 = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -66,13 +66,15 @@
 				CURRENT_PROJECT_VERSION = 0.1.0;
 				ENABLE_TESTABILITY = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = App/Config/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
 				INFOPLIST_KEY_CFBundleDisplayName = "Little While";
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
+				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPortrait;
 				MARKETING_VERSION = 0.1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = app.littlewhile;
+				PRODUCT_BUNDLE_IDENTIFIER = "$(APP_BUNDLE_IDENTIFIER)";
 				PRODUCT_NAME = App;
 				SDKROOT = iphoneos;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
@@ -88,18 +90,118 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 0.1.0;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = App/Config/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
 				INFOPLIST_KEY_CFBundleDisplayName = "Little While";
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
+				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPortrait;
 				MARKETING_VERSION = 0.1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = app.littlewhile;
+				PRODUCT_BUNDLE_IDENTIFIER = "$(APP_BUNDLE_IDENTIFIER)";
 				PRODUCT_NAME = App;
 				SDKROOT = iphoneos;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+		B10000000000000000000001 = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (B10000000000000000000019,);
+			path = TimerActivityWidget;
+			sourceTree = "<group>";
+		};
+		B10000000000000000000019 = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (Info.plist,);
+			target = B1000000000000000000000C;
+		};
+		C10000000000000000000001 = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Shared;
+			sourceTree = "<group>";
+		};
+		B10000000000000000000004 = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = TimerActivityWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		B10000000000000000000005 = {isa = PBXBuildFile; fileRef = B10000000000000000000004; settings = {ATTRIBUTES = (RemoveHeadersOnCopy,); }; };
+		B10000000000000000000006 = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+		B10000000000000000000007 = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+		B10000000000000000000008 = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+		B10000000000000000000009 = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (B10000000000000000000005,);
+			name = "Embed App Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B1000000000000000000000A = {
+			isa = PBXTargetDependency;
+			target = B1000000000000000000000C;
+			targetProxy = B1000000000000000000000B;
+		};
+		B1000000000000000000000B = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A1000000000000000000000E;
+			proxyType = 1;
+			remoteGlobalIDString = B1000000000000000000000C;
+			remoteInfo = TimerActivityWidget;
+		};
+		B1000000000000000000000C = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = B10000000000000000000011;
+			buildPhases = (B10000000000000000000006, B10000000000000000000007, B10000000000000000000008,);
+			dependencies = ();
+			fileSystemSynchronizedGroups = (B10000000000000000000001, C10000000000000000000001,);
+			name = TimerActivityWidget;
+			productName = TimerActivityWidget;
+			productReference = B10000000000000000000004;
+			productType = "com.apple.product-type.app-extension";
+		};
+		B10000000000000000000011 = {isa = XCConfigurationList; buildConfigurations = (B10000000000000000000015, B10000000000000000000016,); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+		B10000000000000000000015 = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 0.1.0;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = TimerActivityWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "Little While Timer";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/Frameworks", "@executable_path/../../Frameworks",);
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "$(APP_BUNDLE_IDENTIFIER).TimerActivity";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		B10000000000000000000016 = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 0.1.0;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = TimerActivityWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "Little While Timer";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/Frameworks", "@executable_path/../../Frameworks",);
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "$(APP_BUNDLE_IDENTIFIER).TimerActivity";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_COMPILATION_MODE = wholemodule;
 				TARGETED_DEVICE_FAMILY = 1;
 			};
 			name = Release;

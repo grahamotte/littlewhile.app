@@ -22,6 +22,7 @@
       "ios": {
         "archiveDestination": "generic/platform=iOS",
         "bundleIdentifier": "app.littlewhile",
+        "bundleIdentifierBuildSetting": "APP_BUNDLE_IDENTIFIER",
         "platform": "IOS",
         "project": "apps/apple/App.xcodeproj",
         "scheme": "App",

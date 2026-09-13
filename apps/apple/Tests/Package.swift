@@ -7,9 +7,9 @@ let package = Package(
     targets: [
         .target(
             name: "App",
-            path: "App",
-            exclude: ["App.swift", "Assets.xcassets", "Config"],
-            sources: ["AppView.swift"],
+            path: ".",
+            exclude: ["App/App.swift", "App/Assets.xcassets", "App/Config", "App.xcodeproj", "Tests", "TimerActivityWidget"],
+            sources: ["App", "Shared"],
         ),
         .testTarget(name: "AppTests", dependencies: ["App"], path: "Tests", exclude: ["Package.swift"]),
     ]
