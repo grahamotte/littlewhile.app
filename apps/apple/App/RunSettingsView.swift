@@ -4,14 +4,17 @@ struct RunSettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var selectedTheme: String
     @State private var visibleTheme: String?
-    @State private var selectedMinute: Int?
+    @State private var selectedMinute: Int
+    @State private var visibleMinute: Int?
+    @State private var didPositionSelectors = false
 
     let onSet: (Int, String) -> Void
 
     init(currentRun: FocusRun, onSet: @escaping (Int, String) -> Void) {
         _selectedTheme = State(initialValue: TimerThemes.resolve(currentRun.theme).id)
-        _visibleTheme = State(initialValue: TimerThemes.resolve(currentRun.theme).id)
+        _visibleTheme = State(initialValue: nil)
         _selectedMinute = State(initialValue: min(120, max(1, currentRun.goalSeconds / 60)))
+        _visibleMinute = State(initialValue: nil)
         self.onSet = onSet
     }
 
@@ -32,7 +35,7 @@ struct RunSettingsView: View {
         .background(.background)
         .safeAreaInset(edge: .bottom, spacing: 0) {
             GlassActionButton(title: "Set") {
-                onSet(selectedMinute ?? 25, selectedTheme)
+                onSet(selectedMinute, selectedTheme)
                 dismiss()
             }
             .frame(maxWidth: .infinity)
@@ -43,6 +46,13 @@ struct RunSettingsView: View {
         }
         .sensoryFeedback(.selection, trigger: selectedMinute)
         .sensoryFeedback(.selection, trigger: selectedTheme)
+        .task {
+            await Task.yield()
+            visibleTheme = selectedTheme
+            visibleMinute = selectedMinute
+            await Task.yield()
+            didPositionSelectors = true
+        }
     }
 
     private var header: some View {
@@ -73,6 +83,7 @@ struct RunSettingsView: View {
                         ForEach(TimerThemes.all, id: \.id) { theme in
                             Button {
                                 selectedTheme = theme.id
+                                visibleTheme = theme.id
                             } label: {
                                 VStack(spacing: 13) {
                                     theme.preview
@@ -139,7 +150,7 @@ struct RunSettingsView: View {
                 .padding(.horizontal, 28)
 
             HStack(alignment: .firstTextBaseline, spacing: 8) {
-                Text("\(selectedMinute ?? 25)")
+                Text("\(selectedMinute)")
                     .font(.system(size: 52, weight: .light, design: .rounded))
                     .monospacedDigit()
                     .contentTransition(.numericText())
@@ -175,7 +186,12 @@ struct RunSettingsView: View {
                 .contentMargins(.horizontal, max(0, geometry.size.width / 2 - 7), for: .scrollContent)
                 .scrollIndicators(.hidden)
                 .scrollTargetBehavior(.viewAligned(limitBehavior: .always))
-                .scrollPosition(id: $selectedMinute, anchor: .center)
+                .scrollPosition(id: $visibleMinute, anchor: .center)
+                .onChange(of: visibleMinute) { _, minute in
+                    if didPositionSelectors, let minute {
+                        selectedMinute = minute
+                    }
+                }
                 .overlay(alignment: .top) {
                     Capsule()
                         .fill(.primary)
@@ -199,14 +215,16 @@ struct RunSettingsView: View {
             .frame(height: 74)
             .accessibilityElement(children: .ignore)
             .accessibilityLabel("Timer duration")
-            .accessibilityValue("\(selectedMinute ?? 25) \(selectedMinute == 1 ? "minute" : "minutes")")
+            .accessibilityValue("\(selectedMinute) \(selectedMinute == 1 ? "minute" : "minutes")")
             .accessibilityHint("Swipe up or down to adjust by one minute")
             .accessibilityAdjustableAction { direction in
                 switch direction {
                 case .increment:
-                    selectedMinute = min(120, (selectedMinute ?? 25) + 1)
+                    selectedMinute = min(120, selectedMinute + 1)
+                    visibleMinute = selectedMinute
                 case .decrement:
-                    selectedMinute = max(1, (selectedMinute ?? 25) - 1)
+                    selectedMinute = max(1, selectedMinute - 1)
+                    visibleMinute = selectedMinute
                 @unknown default:
                     break
                 }
