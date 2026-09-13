@@ -15,11 +15,28 @@ class AppsSimulatorTest < Minitest::Test
     Apps::Simulator.call("iphone")
 
     assert commands.any? { |command| command.include?("xcodebuild") }
+    build_command = commands.find { |command| command.include?("xcodebuild") }
+    assert_includes Shellwords.split(build_command), "PRODUCT_BUNDLE_IDENTIFIER=org.example.app"
     assert_includes commands, "xcrun simctl shutdown 00000000-0000-0000-0000-000000000000"
     assert_includes commands, "xcrun simctl shutdown 11111111-1111-1111-1111-111111111111"
     refute_includes commands, "xcrun simctl shutdown 22222222-2222-2222-2222-222222222222"
     assert commands.any? { |command| command.include?("simctl install") }
     assert commands.any? { |command| command.include?("simctl launch") }
+  end
+
+  def test_uses_custom_bundle_identifier_build_setting
+    Apps.targets.fetch(0)[:bundleIdentifierBuildSetting] = "APP_BUNDLE_IDENTIFIER"
+    commands = []
+    Cmd.stubs(:local).with { |command| commands << command; true }.returns(
+      "iPhone 17 Pro (00000000-0000-0000-0000-000000000000) (Shutdown)",
+    )
+
+    Apps::Simulator.call("iphone")
+
+    arguments = Shellwords.split(commands.find { |command| command.include?("xcodebuild") })
+    assert_includes arguments, "APP_BUNDLE_IDENTIFIER=org.example.app"
+    refute arguments.any? { |argument| argument.start_with?("PRODUCT_BUNDLE_IDENTIFIER=") }
+    assert_includes commands, "xcrun simctl launch 00000000-0000-0000-0000-000000000000 org.example.app"
   end
 
   def test_accepts_iphone_and_ipad_aliases
