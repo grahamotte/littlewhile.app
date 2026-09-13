@@ -67,4 +67,4 @@ The "Repo Specific" section blow contains rules specific to this repo only.
 
 ## Repo Specific
 
-None.
+Little While is an iOS focus timer for setting aside a small, intentional block of time. It supports configurable timer durations and themes, persistent run history, system alarms with local-notification fallback, and a Live Activity displayed on the Lock Screen and Dynamic Island.
