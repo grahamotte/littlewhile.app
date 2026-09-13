@@ -8,6 +8,7 @@ final class TimerSnapshotTests: XCTestCase {
         let run = FocusRun(createdAt: date)
         let snapshot = TimerSnapshot(run: run, at: date)
         XCTAssertEqual(snapshot.runID, run.id)
+        XCTAssertEqual(snapshot.sampledAt, date)
         XCTAssertEqual(snapshot.goalSeconds, 1500)
         XCTAssertEqual(snapshot.elapsedSeconds, 0)
         XCTAssertEqual(snapshot.remainingSeconds, 1500)
@@ -21,6 +22,7 @@ final class TimerSnapshotTests: XCTestCase {
     func testRunningSnapshotRoundsRemainingTimeUp() {
         let run = FocusRun(createdAt: date, startedAt: date, resumedAt: date)
         let snapshot = TimerSnapshot(run: run, at: date.addingTimeInterval(60.2))
+        XCTAssertEqual(snapshot.sampledAt, date.addingTimeInterval(60.2))
         XCTAssertEqual(snapshot.status, .running)
         XCTAssertEqual(snapshot.clockText, "24:00")
         XCTAssertEqual(snapshot.elapsedSeconds, 60.2, accuracy: 0.001)

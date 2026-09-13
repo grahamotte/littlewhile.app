@@ -18,6 +18,13 @@ enum TimerThemes {
             preview: AnyView(BoringThemePreview()),
             screen: { AnyView(BoringTimerView(snapshot: $0)) },
         ),
+        TimerTheme(
+            id: "mr-smiles",
+            name: "Mr Smiles",
+            colorScheme: .dark,
+            preview: AnyView(MrSmilesThemePreview()),
+            screen: { AnyView(MrSmilesTimerView(snapshot: $0)) },
+        ),
     ]
 
     static func resolve(_ id: String) -> TimerTheme {

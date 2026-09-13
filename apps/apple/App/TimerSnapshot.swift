@@ -9,6 +9,7 @@ struct TimerSnapshot: Equatable {
     }
 
     let runID: UUID
+    let sampledAt: Date
     let goalSeconds: Int
     let elapsedSeconds: TimeInterval
     let remainingSeconds: TimeInterval
@@ -17,6 +18,7 @@ struct TimerSnapshot: Equatable {
 
     init(run: FocusRun, at date: Date) {
         runID = run.id
+        sampledAt = date
         goalSeconds = run.goalSeconds
         elapsedSeconds = run.elapsed(at: date)
         remainingSeconds = run.remaining(at: date)

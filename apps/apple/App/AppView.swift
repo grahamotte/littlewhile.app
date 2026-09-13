@@ -12,8 +12,8 @@ struct AppView: View {
     }
 
     var body: some View {
-        TimelineView(.periodic(from: .now, by: 1)) { context in
-            let snapshot = TimerSnapshot(run: store.currentRun, at: context.date)
+        TimelineView(.periodic(from: .now, by: 1)) { _ in
+            let snapshot = TimerSnapshot(run: store.currentRun, at: .now)
             let theme = TimerThemes.resolve(store.currentRun.theme)
 
             theme.screen(snapshot)
