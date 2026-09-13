@@ -1,5 +1,5 @@
 {
-  "build": "0.1.2",
+  "build": "0.2.0",
   "contactEmail": "go@graham.lol",
   "contactFirstName": "Graham",
   "contactLastName": "Otte",
@@ -48,6 +48,6 @@
       }
     }
   },
-  "version": "0.1.2",
-  "whatsNew": "Initial release with configurable focus timers, a clean timer design, persistent history, completion alerts, and Live Activities."
+  "version": "0.2.0",
+  "whatsNew": "Focus with configurable timers, persistent history, completion alerts, Live Activities, and the new interactive Mr Smiles theme."
 }
