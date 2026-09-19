@@ -106,7 +106,7 @@ final class TimerLiveActivity {
         if let matching {
             creationRunID = nil
             if complete {
-                await client.end(id: matching.id, state: state, dismissalDate: date.addingTimeInterval(60))
+                await client.end(id: matching.id, state: state, dismissalDate: nil)
             } else if run.hasStarted {
                 await client.update(id: matching.id, state: state)
             } else {

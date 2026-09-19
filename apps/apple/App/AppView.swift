@@ -6,6 +6,7 @@ struct AppView: View {
     @State private var companion: TimerCompanion?
     @State private var sheet: TimerSheet?
     @State private var showingRestart = false
+    @State private var completedRunID: UUID?
 
     init(store: RunStore? = nil) {
         _store = State(initialValue: store ?? RunStore())
@@ -22,13 +23,8 @@ struct AppView: View {
                     controls(snapshot: snapshot)
                         .environment(\.colorScheme, theme.colorScheme)
                 }
-                .onChange(of: snapshot.status) { _, status in
-                    if status == .complete {
-                        store.refresh()
-                        Task {
-                            await companion?.complete(run: store.currentRun)
-                        }
-                    }
+                .onChange(of: snapshot.status, initial: true) { _, status in
+                    handleCompletion(snapshot)
                 }
                 .sensoryFeedback(.success, trigger: snapshot.status == .complete) { _, completed in
                     completed
@@ -109,6 +105,15 @@ struct AppView: View {
         }
         .padding(.horizontal, 24)
         .padding(.top, 12)
+    }
+
+    private func handleCompletion(_ snapshot: TimerSnapshot) {
+        guard snapshot.status == .complete, completedRunID != snapshot.runID else { return }
+        completedRunID = snapshot.runID
+        store.refresh()
+        Task {
+            await companion?.complete(run: store.currentRun)
+        }
     }
 
     private func synchronizeCompanion(userInitiated: Bool = false) {

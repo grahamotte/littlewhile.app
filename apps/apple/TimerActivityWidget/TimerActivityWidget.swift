@@ -1,44 +1,80 @@
 #if os(iOS)
 import ActivityKit
+import AlarmKit
 import SwiftUI
 import WidgetKit
 
 @main
+struct TimerActivityWidgets: WidgetBundle {
+    var body: some Widget {
+        TimerActivityWidget()
+        if #available(iOS 26.0, *) {
+            TimerAlarmActivityWidget()
+        }
+    }
+}
+
 struct TimerActivityWidget: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: TimerActivityAttributes.self) { context in
-            TimerActivityView(context: context)
+            TimelineView(.periodic(from: .now, by: 1)) { timeline in
+                let content = TimerActivityView(context: context, now: timeline.date)
+                HStack(alignment: .center, spacing: 16) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack(spacing: 8) {
+                            content.brandIcon
+                                .frame(width: 22, height: 22)
+
+                            Text(content.statusText)
+                                .font(.subheadline.weight(.semibold))
+
+                            Spacer(minLength: 8)
+
+                            Text(content.goalText)
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                        }
+
+                        content.countdown
+                            .font(.system(size: 44, weight: .medium, design: .rounded))
+                            .monospacedDigit()
+                            .minimumScaleFactor(0.7)
+                    }
+
+                    content.ring
+                        .frame(width: 46, height: 46)
+                }
+                .padding(.horizontal, 20)
+                .padding(.vertical, 16)
                 .activitySystemActionForegroundColor(.primary)
+                .accessibilityElement(children: .combine)
+            }
         } dynamicIsland: { context in
-            let content = TimerActivityView(context: context)
+            let content = TimerActivityView(context: context, now: .now)
 
             return DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
-                    Label {
-                        Text("Little While")
-                            .font(.subheadline.weight(.medium))
-                    } icon: {
-                        content.symbol
-                    }
-                    .padding(.top, 4)
+                    content.brandIcon
+                        .frame(width: 24, height: 24)
+                        .padding(.leading, 2)
                 }
 
                 DynamicIslandExpandedRegion(.trailing) {
-                    Text("\(context.attributes.goalSeconds / 60) min")
-                        .font(.subheadline)
+                    Text(content.goalText)
+                        .font(.subheadline.weight(.medium))
                         .foregroundStyle(.secondary)
-                        .padding(.top, 4)
                 }
 
                 DynamicIslandExpandedRegion(.bottom) {
-                    VStack(spacing: 12) {
-                        HStack(alignment: .lastTextBaseline) {
+                    VStack(spacing: 10) {
+                        HStack(alignment: .lastTextBaseline, spacing: 12) {
                             content.countdown
-                                .font(.system(size: 38, weight: .light, design: .rounded))
+                                .font(.system(size: 38, weight: .medium, design: .rounded))
                                 .monospacedDigit()
                                 .frame(maxWidth: .infinity, alignment: .leading)
+                                .minimumScaleFactor(0.75)
 
-                            content.status
+                            Text(content.statusText)
                                 .font(.subheadline)
                                 .foregroundStyle(.secondary)
                         }
@@ -46,82 +82,64 @@ struct TimerActivityWidget: Widget {
                         content.progress
                             .tint(.white)
                     }
-                    .padding(.top, 8)
-                    .padding(.bottom, 6)
+                    .padding(.top, 6)
+                    .padding(.bottom, 4)
                 }
             } compactLeading: {
-                content.symbol
-                    .font(.system(size: 14, weight: .medium))
+                content.brandIcon
+                    .frame(width: 22, height: 22)
             } compactTrailing: {
                 if content.hasFinished {
-                    Text("Done")
-                        .font(.caption.weight(.medium))
+                    Image(systemName: "checkmark")
+                        .font(.caption.weight(.bold))
                 } else {
                     content.countdown
-                        .font(.system(.caption, design: .rounded, weight: .medium))
+                        .font(.system(size: 15, weight: .semibold, design: .rounded))
                         .monospacedDigit()
-                        .frame(width: 52)
-                        .minimumScaleFactor(0.75)
+                        .frame(width: 34, alignment: .trailing)
+                        .minimumScaleFactor(0.6)
                 }
             } minimal: {
-                content.ring
-                    .frame(width: 23, height: 23)
+                if content.hasFinished {
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 12, weight: .bold))
+                } else {
+                    content.brandIcon
+                        .frame(width: 20, height: 20)
+                }
             }
-            .keylineTint(.white.opacity(0.6))
+            .keylineTint(Color(red: 0.93, green: 0.89, blue: 0.82))
         }
     }
 }
 
-private struct TimerActivityView: View {
+private struct TimerActivityView {
     let context: ActivityViewContext<TimerActivityAttributes>
+    let now: Date
 
     var hasFinished: Bool {
-        context.state.isComplete || (context.isStale && !context.state.isPaused)
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack {
-                Label {
-                    Text("Little While")
-                        .font(.subheadline.weight(.medium))
-                } icon: {
-                    symbol
-                }
-
-                Spacer()
-
-                Text("\(context.attributes.goalSeconds / 60) min goal")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-
-            HStack(alignment: .lastTextBaseline, spacing: 16) {
-                countdown
-                    .font(.system(size: 44, weight: .light, design: .rounded))
-                    .monospacedDigit()
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .minimumScaleFactor(0.75)
-
-                status
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-            }
-
-            progress
-                .tint(.primary)
+        if context.state.isComplete || (context.isStale && !context.state.isPaused) {
+            return true
         }
-        .padding(20)
-        .accessibilityElement(children: .combine)
+        if context.state.isPaused {
+            return false
+        }
+        if let deadline = context.state.deadline {
+            return deadline <= now
+        }
+        return context.state.remainingSeconds <= 0
     }
 
-    var symbol: some View {
-        Image(systemName: hasFinished ? "checkmark.circle.fill" : (context.state.isPaused ? "pause.fill" : "timer"))
-            .accessibilityHidden(true)
+    var statusText: String {
+        hasFinished ? "Time’s up" : (context.state.isPaused ? "Paused" : "Remaining")
     }
 
-    var status: some View {
-        Text(hasFinished ? "Time’s up" : (context.state.isPaused ? "Paused" : "Focusing"))
+    var goalText: String {
+        "\(context.attributes.goalSeconds / 60) min"
+    }
+
+    var brandIcon: some View {
+        MiniBrandIcon()
     }
 
     @ViewBuilder
@@ -165,22 +183,137 @@ private struct TimerActivityView: View {
     var ring: some View {
         if hasFinished {
             Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 21, weight: .regular))
+                .font(.system(size: 40, weight: .regular))
+                .symbolRenderingMode(.hierarchical)
                 .accessibilityLabel("Timer complete")
         } else if context.state.isPaused {
-            ZStack {
-                Circle()
-                    .stroke(.white.opacity(0.25), lineWidth: 2)
-
-                Image(systemName: "pause.fill")
-                    .font(.system(size: 9, weight: .semibold))
-            }
-            .accessibilityLabel("Timer paused")
+            progress
+                .progressViewStyle(.circular)
+                .tint(.secondary)
+                .accessibilityLabel("Timer paused")
         } else {
             progress
                 .progressViewStyle(.circular)
-                .tint(.white)
+                .tint(.primary)
                 .accessibilityLabel("Timer progress")
+        }
+    }
+}
+
+private struct MiniBrandIcon: View {
+    var body: some View {
+        Image("MiniIcon")
+            .resizable()
+            .aspectRatio(contentMode: .fill)
+            .clipShape(Circle())
+            .accessibilityHidden(true)
+    }
+}
+
+@available(iOS 26.0, *)
+struct TimerAlarmActivityWidget: Widget {
+    var body: some WidgetConfiguration {
+        ActivityConfiguration(for: AlarmAttributes<FocusAlarmMetadata>.self) { context in
+            let content = AlarmActivityContent(context: context)
+
+            HStack(spacing: 12) {
+                MiniBrandIcon()
+                    .frame(width: 36, height: 36)
+
+                content.title
+                    .font(.headline)
+
+                Spacer(minLength: 0)
+
+                content.countdown
+                    .font(.system(size: 34, weight: .medium, design: .rounded))
+                    .monospacedDigit()
+            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 16)
+            .activityBackgroundTint(context.attributes.tintColor.opacity(0.35))
+            .activitySystemActionForegroundColor(.primary)
+        } dynamicIsland: { context in
+            let content = AlarmActivityContent(context: context)
+
+            return DynamicIsland {
+                DynamicIslandExpandedRegion(.leading) {
+                    MiniBrandIcon()
+                        .frame(width: 24, height: 24)
+                }
+
+                DynamicIslandExpandedRegion(.bottom) {
+                    HStack(alignment: .lastTextBaseline) {
+                        content.title
+                            .font(.headline)
+                        Spacer(minLength: 8)
+                        content.countdown
+                            .font(.system(size: 28, weight: .medium, design: .rounded))
+                            .monospacedDigit()
+                    }
+                }
+            } compactLeading: {
+                MiniBrandIcon()
+                    .frame(width: 20, height: 20)
+            } compactTrailing: {
+                if content.isAlerting {
+                    Image(systemName: "alarm.fill")
+                        .font(.caption.weight(.bold))
+                } else {
+                    content.countdown
+                        .font(.system(size: 15, weight: .semibold, design: .rounded))
+                        .monospacedDigit()
+                        .frame(width: 34, alignment: .trailing)
+                        .minimumScaleFactor(0.6)
+                }
+            } minimal: {
+                MiniBrandIcon()
+                    .frame(width: 20, height: 20)
+            }
+            .keylineTint(context.attributes.tintColor)
+        }
+    }
+}
+
+@available(iOS 26.0, *)
+private struct AlarmActivityContent {
+    let context: ActivityViewContext<AlarmAttributes<FocusAlarmMetadata>>
+
+    var isAlerting: Bool {
+        if case .alert = context.state.mode { return true }
+        return false
+    }
+
+    var title: Text {
+        switch context.state.mode {
+        case .paused:
+            Text(context.attributes.presentation.paused?.title ?? "Paused")
+        case .alert:
+            Text(context.attributes.presentation.alert.title)
+        default:
+            Text(context.attributes.presentation.countdown?.title ?? "Focus")
+        }
+    }
+
+    @ViewBuilder
+    var countdown: some View {
+        switch context.state.mode {
+        case .alert:
+            Text("00:00")
+        case .countdown(let countdown):
+            Text(
+                timerInterval: countdown.startDate...countdown.fireDate,
+                countsDown: true,
+                showsHours: false,
+            )
+            .contentTransition(.numericText(countsDown: true))
+        case .paused(let paused):
+            Text(
+                Duration.seconds(max(0, paused.totalCountdownDuration - paused.previouslyElapsedDuration).rounded(.up))
+                    .formatted(.time(pattern: .minuteSecond(padMinuteToLength: 2))),
+            )
+        @unknown default:
+            EmptyView()
         }
     }
 }

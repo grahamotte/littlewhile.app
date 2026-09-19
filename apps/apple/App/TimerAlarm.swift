@@ -94,10 +94,17 @@ final class TimerAlarm {
         guard let manager else { return .unavailable }
 
         var authorization = manager.authorizationState
+        let canPrompt = shouldRequestPermission
+        var promptCompleted = false
         if run.isRunning, !run.isComplete(at: now()),
-           authorization == .notDetermined, shouldRequestPermission {
+           authorization == .notDetermined, canPrompt {
             shouldRequestPermission = false
-            authorization = (try? await manager.requestAuthorization()) ?? manager.authorizationState
+            do {
+                authorization = try await manager.requestAuthorization()
+                promptCompleted = true
+            } catch {
+                authorization = manager.authorizationState
+            }
         }
         guard currentGeneration == generation else { return .unavailable }
         shouldRequestPermission = false
@@ -119,6 +126,9 @@ final class TimerAlarm {
         if run.isComplete(at: date) {
             if let existing {
                 if existing.state == .alerting {
+                    return .scheduled
+                }
+                if existing.state == .scheduled, existing.deadline == nil {
                     return .scheduled
                 }
                 if existing.state == .scheduled, let deadline = existing.deadline, deadline <= date {
@@ -148,17 +158,26 @@ final class TimerAlarm {
             return .scheduled
         }
 
-        guard authorization == .authorized else { return existing == nil ? .unavailable : .uncertain }
+        if authorization != .authorized {
+            let tryScheduleAnyway = promptCompleted && authorization == .notDetermined
+            if !tryScheduleAnyway {
+                return existing == nil ? .unavailable : .uncertain
+            }
+        }
 
         let scheduleDate = now()
         let remaining = run.remaining(at: scheduleDate)
         guard remaining > 0 else { return .unavailable }
         let deadline = scheduleDate.addingTimeInterval(remaining)
 
-        if let existing, existing.state == .scheduled,
-           let existingDeadline = existing.deadline,
-           abs(existingDeadline.timeIntervalSince(deadline)) < 0.5 {
-            return .scheduled
+        if let existing, existing.state == .scheduled {
+            if existing.deadline == nil {
+                return .scheduled
+            }
+            if let existingDeadline = existing.deadline,
+               abs(existingDeadline.timeIntervalSince(deadline)) < 0.5 {
+                return .scheduled
+            }
         }
 
         if let existing {
@@ -196,11 +215,6 @@ import AlarmKit
 import SwiftUI
 
 @available(iOS 26.0, *)
-nonisolated private struct FocusAlarmMetadata: AlarmMetadata {
-    let runID: UUID
-}
-
-@available(iOS 26.0, *)
 @MainActor
 private final class SystemTimerAlarmManager: TimerAlarmManager {
     private let manager = AlarmManager.shared
@@ -223,7 +237,7 @@ private final class SystemTimerAlarmManager: TimerAlarmManager {
             }
             let state: TimerAlarmRecord.State
             switch alarm.state {
-            case .scheduled: state = .scheduled
+            case .scheduled, .countdown: state = .scheduled
             case .alerting: state = .alerting
             default: state = .other
             }
@@ -232,22 +246,31 @@ private final class SystemTimerAlarmManager: TimerAlarmManager {
     }
 
     func schedule(id: UUID, deadline: Date) async throws {
+        let title: LocalizedStringResource = "Time is up"
         let alert: AlarmPresentation.Alert
         if #available(iOS 26.1, *) {
-            alert = AlarmPresentation.Alert(title: "Your little while is complete")
+            alert = AlarmPresentation.Alert(title: title)
         } else {
             alert = AlarmPresentation.Alert(
-                title: "Your little while is complete",
+                title: title,
                 stopButton: AlarmButton(text: "Done", textColor: .white, systemImageName: "checkmark"),
             )
         }
         let attributes = AlarmAttributes(
-            presentation: AlarmPresentation(alert: alert),
+            presentation: AlarmPresentation(
+                alert: alert,
+                countdown: AlarmPresentation.Countdown(title: "Focus"),
+                paused: AlarmPresentation.Paused(
+                    title: "Paused",
+                    resumeButton: AlarmButton(text: "Resume", textColor: .white, systemImageName: "play.fill"),
+                ),
+            ),
             metadata: FocusAlarmMetadata(runID: id),
             tintColor: Color(red: 0.76, green: 0.42, blue: 0.28),
         )
-        let configuration = AlarmManager.AlarmConfiguration.alarm(
-            schedule: .fixed(deadline),
+        let remaining = max(1, deadline.timeIntervalSince(Date()))
+        let configuration = AlarmManager.AlarmConfiguration.timer(
+            duration: remaining,
             attributes: attributes,
             stopIntent: StopTimerAlarmIntent(runID: id),
             sound: .default,

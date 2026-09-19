@@ -110,7 +110,7 @@ final class TimerLiveActivityTests: XCTestCase {
         XCTAssertTrue(client.requests.isEmpty)
     }
 
-    func testCompletionEndsActivityWithFinalStateAndBriefDismissalDelay() async throws {
+    func testCompletionEndsActivityImmediatelyWithFinalState() async throws {
         let client = ActivityBoundary()
         let run = runningRun()
         client.activities = [record(run: run)]
@@ -124,12 +124,12 @@ final class TimerLiveActivityTests: XCTestCase {
         XCTAssertFalse(ending.state.isPaused)
         XCTAssertEqual(ending.state.remainingSeconds, 0)
         XCTAssertNil(ending.state.deadline)
-        XCTAssertEqual(ending.dismissalDate, completeAt.addingTimeInterval(60))
-        XCTAssertFalse(client.activities[0].isActive)
+        XCTAssertNil(ending.dismissalDate)
+        XCTAssertTrue(client.activities.isEmpty)
         XCTAssertTrue(client.requests.isEmpty)
     }
 
-    func testRepeatedCompletedReconciliationDoesNotExtendDismissal() async {
+    func testRepeatedCompletedReconciliationDoesNotEndAgain() async {
         let client = ActivityBoundary()
         let run = runningRun()
         client.activities = [record(run: run)]
@@ -141,7 +141,7 @@ final class TimerLiveActivityTests: XCTestCase {
         await coordinator.synchronize(run: run)
 
         XCTAssertEqual(client.endings.count, 1)
-        XCTAssertEqual(client.endings[0].dismissalDate, date.addingTimeInterval(1_560))
+        XCTAssertNil(client.endings[0].dismissalDate)
     }
 
     func testNewReadyRunImmediatelyEndsPriorActivity() async throws {

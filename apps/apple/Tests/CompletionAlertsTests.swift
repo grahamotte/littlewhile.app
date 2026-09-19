@@ -21,8 +21,8 @@ final class CompletionAlertsTests: XCTestCase {
         let request = try? XCTUnwrap(center.pendingRequest)
         let trigger = request?.trigger as? UNTimeIntervalNotificationTrigger
         XCTAssertEqual(request?.identifier, "littlewhile.timer.complete")
-        XCTAssertEqual(request?.content.title, "A little while, well spent.")
-        XCTAssertEqual(request?.content.body, "Your focus time is complete. Take a moment for yourself.")
+        XCTAssertEqual(request?.content.title, "Time’s up")
+        XCTAssertEqual(request?.content.body, "A little while, well spent.")
         XCTAssertNotNil(request?.content.sound)
         XCTAssertEqual(trigger?.timeInterval, 260)
         XCTAssertEqual(trigger?.repeats, false)

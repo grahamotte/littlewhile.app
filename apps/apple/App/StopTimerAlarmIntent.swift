@@ -2,7 +2,7 @@
 import AppIntents
 
 @available(iOS 26.0, *)
-struct StopTimerAlarmIntent: LiveActivityIntent {
+nonisolated struct StopTimerAlarmIntent: LiveActivityIntent {
     static var title: LocalizedStringResource { "Stop focus alarm" }
 
     @Parameter(title: "Run")

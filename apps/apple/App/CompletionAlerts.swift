@@ -117,8 +117,8 @@ final class CompletionAlerts: NSObject, UNUserNotificationCenterDelegate {
         guard remaining > 0 else { return }
 
         let content = UNMutableNotificationContent()
-        content.title = "A little while, well spent."
-        content.body = "Your focus time is complete. Take a moment for yourself."
+        content.title = "Time’s up"
+        content.body = "A little while, well spent."
         content.sound = .default
         let request = UNNotificationRequest(
             identifier: Self.notificationIdentifier,
