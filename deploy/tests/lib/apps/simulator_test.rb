@@ -17,11 +17,14 @@ class AppsSimulatorTest < Minitest::Test
     assert commands.any? { |command| command.include?("xcodebuild") }
     build_command = commands.find { |command| command.include?("xcodebuild") }
     assert_includes Shellwords.split(build_command), "PRODUCT_BUNDLE_IDENTIFIER=org.example.app"
-    assert_includes commands, "xcrun simctl shutdown 00000000-0000-0000-0000-000000000000"
-    assert_includes commands, "xcrun simctl shutdown 11111111-1111-1111-1111-111111111111"
-    refute_includes commands, "xcrun simctl shutdown 22222222-2222-2222-2222-222222222222"
-    assert commands.any? { |command| command.include?("simctl install") }
-    assert commands.any? { |command| command.include?("simctl launch") }
+    refute commands.any? { |command| command.include?("simctl shutdown") }
+    refute commands.any? { |command| command.include?("simctl boot") }
+    refute commands.any? { |command| command.include?("bootstatus") }
+    assert_includes commands, "xcrun simctl terminate 00000000-0000-0000-0000-000000000000 org.example.app"
+    assert commands.any? { |command| command.include?("simctl install") && command.include?("00000000-0000-0000-0000-000000000000") }
+    assert_includes commands, "xcrun simctl launch 00000000-0000-0000-0000-000000000000 org.example.app"
+    refute commands.any? { |command| command.include?("11111111-1111-1111-1111-111111111111") }
+    refute commands.any? { |command| command.include?("22222222-2222-2222-2222-222222222222") }
     assert_includes commands, "open -b com.apple.dt.Devices"
     refute commands.any? { |command| command.include?("open -a Simulator") }
   end
@@ -37,7 +40,24 @@ class AppsSimulatorTest < Minitest::Test
 
     Apps::Simulator.call("iphone")
 
+    assert_includes commands, "xcrun simctl boot 00000000-0000-0000-0000-000000000000"
+    assert_includes commands, "xcrun simctl bootstatus 00000000-0000-0000-0000-000000000000 -b"
     assert_includes commands, "open -a Simulator --args -CurrentDeviceUDID 00000000-0000-0000-0000-000000000000"
+  end
+
+  def test_prefers_booted_simulator_over_shutdown
+    commands = []
+    Cmd.stubs(:local).with { |command| commands << command; true }.returns(<<~DEVICES)
+      iPhone 17 Pro (00000000-0000-0000-0000-000000000000) (Shutdown)
+      iPhone 16 Pro (11111111-1111-1111-1111-111111111111) (Booted)
+    DEVICES
+
+    Apps::Simulator.call("iphone")
+
+    refute commands.any? { |command| command.include?("simctl boot") }
+    assert_includes commands, "xcrun simctl terminate 11111111-1111-1111-1111-111111111111 org.example.app"
+    assert commands.any? { |command| command.include?("simctl install") && command.include?("11111111-1111-1111-1111-111111111111") }
+    assert_includes commands, "xcrun simctl launch 11111111-1111-1111-1111-111111111111 org.example.app"
   end
 
   def test_uses_custom_bundle_identifier_build_setting
