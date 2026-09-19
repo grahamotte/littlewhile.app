@@ -25,26 +25,24 @@ struct GlassActionButton: View {
     let action: () -> Void
 
     var body: some View {
-        if #available(iOS 26.0, macOS 26.0, *) {
-            button
-                .buttonStyle(.glassProminent)
-                .tint(.primary)
-                .buttonBorderShape(.capsule)
-        } else {
-            button
-                .buttonStyle(.borderedProminent)
-                .tint(.primary)
-                .buttonBorderShape(.capsule)
-        }
-    }
-
-    private var button: some View {
         Button(action: action) {
             Text(title)
                 .font(.headline)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 14)
         }
+        .buttonStyle(InvertedCapsuleButtonStyle())
+    }
+}
+
+private struct InvertedCapsuleButtonStyle: ButtonStyle {
+    @Environment(\.colorScheme) private var colorScheme
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .foregroundStyle(colorScheme == .dark ? Color.black : Color.white)
+            .background(colorScheme == .dark ? Color.white : Color.black, in: Capsule())
+            .opacity(configuration.isPressed ? 0.82 : 1)
     }
 }
 
