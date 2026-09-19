@@ -162,30 +162,29 @@ struct RunSettingsView: View {
 
             GeometryReader { geometry in
                 ScrollView(.horizontal) {
-                    LazyHStack(alignment: .top, spacing: 0) {
+                    HStack(alignment: .top, spacing: 0) {
                         ForEach(1...120, id: \.self) { minute in
-                            VStack(spacing: 10) {
-                                Capsule()
-                                    .fill(.primary.opacity(minute.isMultiple(of: 5) ? 0.5 : 0.18))
-                                    .frame(width: 1.5, height: minute.isMultiple(of: 5) ? 38 : 22)
-                                    .frame(height: 38, alignment: .top)
-
-                                if minute.isMultiple(of: 5) {
-                                    Text("\(minute)")
-                                        .font(.caption2.monospacedDigit())
-                                        .foregroundStyle(.secondary)
-                                        .fixedSize()
+                            Capsule()
+                                .fill(.primary.opacity(minute.isMultiple(of: 5) ? 0.5 : 0.18))
+                                .frame(width: 1.5, height: minute.isMultiple(of: 5) ? 38 : 22)
+                                .frame(width: 14, height: 74, alignment: .top)
+                                .overlay(alignment: .top) {
+                                    if minute.isMultiple(of: 5) {
+                                        Text("\(minute)")
+                                            .font(.caption2.monospacedDigit())
+                                            .foregroundStyle(.secondary)
+                                            .fixedSize()
+                                            .offset(y: 48)
+                                    }
                                 }
-                            }
-                            .frame(width: 14)
-                            .id(minute)
+                                .id(minute)
                         }
                     }
                     .scrollTargetLayout()
                 }
                 .contentMargins(.horizontal, max(0, geometry.size.width / 2 - 7), for: .scrollContent)
                 .scrollIndicators(.hidden)
-                .scrollTargetBehavior(.viewAligned(limitBehavior: .always))
+                .scrollTargetBehavior(.viewAligned(limitBehavior: .never))
                 .scrollPosition(id: $visibleMinute, anchor: .center)
                 .onChange(of: visibleMinute) { _, minute in
                     if didPositionSelectors, let minute {
