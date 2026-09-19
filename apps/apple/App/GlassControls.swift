@@ -28,21 +28,13 @@ struct GlassActionButton: View {
         Button(action: action) {
             Text(title)
                 .font(.headline)
+                .foregroundStyle(.primary)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 14)
+                .contentShape(Capsule())
         }
-        .buttonStyle(InvertedCapsuleButtonStyle())
-    }
-}
-
-private struct InvertedCapsuleButtonStyle: ButtonStyle {
-    @Environment(\.colorScheme) private var colorScheme
-
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .foregroundStyle(colorScheme == .dark ? Color.black : Color.white)
-            .background(colorScheme == .dark ? Color.white : Color.black, in: Capsule())
-            .opacity(configuration.isPressed ? 0.82 : 1)
+        .buttonStyle(.plain)
+        .modifier(CapsuleGlass())
     }
 }
 
@@ -55,6 +47,21 @@ private struct CircularGlass: ViewModifier {
                 .background(.ultraThinMaterial, in: Circle())
                 .overlay {
                     Circle().strokeBorder(.white.opacity(0.5), lineWidth: 0.5)
+                }
+                .shadow(color: .black.opacity(0.06), radius: 10, y: 4)
+        }
+    }
+}
+
+private struct CapsuleGlass: ViewModifier {
+    func body(content: Content) -> some View {
+        if #available(iOS 26.0, macOS 26.0, *) {
+            content.glassEffect(.regular.interactive(), in: .capsule)
+        } else {
+            content
+                .background(.ultraThinMaterial, in: Capsule())
+                .overlay {
+                    Capsule().strokeBorder(.white.opacity(0.5), lineWidth: 0.5)
                 }
                 .shadow(color: .black.opacity(0.06), radius: 10, y: 4)
         }
