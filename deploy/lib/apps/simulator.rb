@@ -71,9 +71,15 @@ module Apps
 
         Cmd.local(Shellwords.join([ "xcrun", "simctl", "boot", udid ])) rescue nil
         Cmd.local(Shellwords.join([ "xcrun", "simctl", "bootstatus", udid, "-b" ]))
-        Cmd.local(Shellwords.join([ "open", "-a", "Simulator", "--args", "-CurrentDeviceUDID", udid ]))
+        open_simulator(udid)
         Cmd.local(Shellwords.join([ "xcrun", "simctl", "install", udid, app_path ]))
         Cmd.local(Shellwords.join([ "xcrun", "simctl", "launch", udid, target.fetch(:bundleIdentifier) ]))
+      end
+
+      def open_simulator(udid)
+        Cmd.local("open -b com.apple.dt.Devices")
+      rescue StandardError
+        Cmd.local(Shellwords.join([ "open", "-a", "Simulator", "--args", "-CurrentDeviceUDID", udid ]))
       end
 
       def product_path(target, derived_data_path)

@@ -22,6 +22,22 @@ class AppsSimulatorTest < Minitest::Test
     refute_includes commands, "xcrun simctl shutdown 22222222-2222-2222-2222-222222222222"
     assert commands.any? { |command| command.include?("simctl install") }
     assert commands.any? { |command| command.include?("simctl launch") }
+    assert_includes commands, "open -b com.apple.dt.Devices"
+    refute commands.any? { |command| command.include?("open -a Simulator") }
+  end
+
+  def test_falls_back_to_simulator_app_when_device_hub_is_missing
+    commands = []
+    Cmd.stubs(:local).with do |command|
+      commands << command
+      raise "missing" if command == "open -b com.apple.dt.Devices"
+
+      true
+    end.returns("iPhone 17 Pro (00000000-0000-0000-0000-000000000000) (Shutdown)")
+
+    Apps::Simulator.call("iphone")
+
+    assert_includes commands, "open -a Simulator --args -CurrentDeviceUDID 00000000-0000-0000-0000-000000000000"
   end
 
   def test_uses_custom_bundle_identifier_build_setting
