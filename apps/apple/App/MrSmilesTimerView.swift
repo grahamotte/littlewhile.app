@@ -214,17 +214,9 @@ private struct MrSmilesFace: View {
     @ViewBuilder
     private func eye(paused: Bool, completed: Bool, winking: Bool, side: CGFloat) -> some View {
         if completed {
-            ZStack {
-                Capsule()
-                    .fill(MrSmilesPalette.ink)
-                    .frame(width: side * 0.055, height: side * 0.22)
-                    .rotationEffect(.degrees(45))
-
-                Capsule()
-                    .fill(MrSmilesPalette.ink)
-                    .frame(width: side * 0.055, height: side * 0.22)
-                    .rotationEffect(.degrees(-45))
-            }
+            MrSmilesHeart()
+                .fill(MrSmilesPalette.ink)
+                .frame(width: side * 0.175, height: side * 0.16)
         } else if paused {
             Capsule()
                 .fill(MrSmilesPalette.ink)
@@ -238,6 +230,37 @@ private struct MrSmilesFace: View {
                 .fill(MrSmilesPalette.ink)
                 .frame(width: side * 0.105, height: side * 0.105)
         }
+    }
+}
+
+private struct MrSmilesHeart: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let width = rect.width
+        let height = rect.height
+        path.move(to: CGPoint(x: width * 0.5, y: height * 0.92))
+        path.addCurve(
+            to: CGPoint(x: width * 0.05, y: height * 0.32),
+            control1: CGPoint(x: width * 0.5, y: height * 0.78),
+            control2: CGPoint(x: width * 0.02, y: height * 0.58),
+        )
+        path.addCurve(
+            to: CGPoint(x: width * 0.5, y: height * 0.28),
+            control1: CGPoint(x: width * 0.08, y: height * 0.04),
+            control2: CGPoint(x: width * 0.38, y: height * 0.04),
+        )
+        path.addCurve(
+            to: CGPoint(x: width * 0.95, y: height * 0.32),
+            control1: CGPoint(x: width * 0.62, y: height * 0.04),
+            control2: CGPoint(x: width * 0.92, y: height * 0.04),
+        )
+        path.addCurve(
+            to: CGPoint(x: width * 0.5, y: height * 0.92),
+            control1: CGPoint(x: width * 0.98, y: height * 0.58),
+            control2: CGPoint(x: width * 0.5, y: height * 0.78),
+        )
+        path.closeSubpath()
+        return path
     }
 }
 
