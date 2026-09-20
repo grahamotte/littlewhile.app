@@ -37,7 +37,7 @@ class Agent
     Open3.capture3(environment, *command, **options)
   end
 
-  def environment = { "OPENROUTER_API_KEY" => ENV.fetch("OPENROUTER_TOKEN"), "TMPDIR" => @dir }.merge(@env)
+  def environment = { "OPENROUTER_API_KEY" => ENV.fetch("OPENROUTER_TOKEN"), "TMPDIR" => @dir, "PWD" => @dir }.merge(@env)
 
   def options = { stdin_data: @prompt, chdir: @dir }
 
@@ -51,6 +51,8 @@ class Agent
       @model,
       "--variant",
       @effort,
+      "--dir",
+      @dir,
     ]
   end
 end

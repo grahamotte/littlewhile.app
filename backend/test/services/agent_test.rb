@@ -51,6 +51,7 @@ class AgentTest < ActiveSupport::TestCase
     )
 
     assert_equal [ "First response", "Second response" ], result
+    dir = FakeAgent.captured_options.fetch(:chdir)
     assert_equal [
       "opencode",
       "run",
@@ -60,9 +61,10 @@ class AgentTest < ActiveSupport::TestCase
       "openrouter/anthropic/claude-sonnet-4",
       "--variant",
       "high",
+      "--dir",
+      dir,
     ], FakeAgent.captured_command
-    dir = FakeAgent.captured_options.fetch(:chdir)
-    assert_equal({ "OPENROUTER_API_KEY" => "test-token", "TMPDIR" => dir }, FakeAgent.captured_environment)
+    assert_equal({ "OPENROUTER_API_KEY" => "test-token", "TMPDIR" => dir, "PWD" => dir }, FakeAgent.captured_environment)
     assert_equal "Answer this prompt", FakeAgent.captured_options.fetch(:stdin_data)
     refute_equal Rails.root.to_s, dir
     refute File.exist?(dir)
@@ -89,6 +91,8 @@ class AgentTest < ActiveSupport::TestCase
     assert_equal [ :before, :run, :after ], FakeAgent.order
     assert_equal 1, dirs.uniq.size
     assert_equal dirs.first, FakeAgent.captured_options.fetch(:chdir)
+    assert_equal dirs.first, FakeAgent.captured_environment.fetch("PWD")
+    assert_equal dirs.first, FakeAgent.captured_command[FakeAgent.captured_command.index("--dir") + 1]
     refute File.exist?(dirs.first)
   end
 
@@ -101,6 +105,8 @@ class AgentTest < ActiveSupport::TestCase
     assert_equal "example-token", FakeAgent.captured_environment.fetch("EXAMPLE_TOKEN")
     assert_equal "test-token", FakeAgent.captured_environment.fetch("OPENROUTER_API_KEY")
     assert_equal dir, FakeAgent.captured_environment.fetch("TMPDIR")
+    assert_equal dir, FakeAgent.captured_environment.fetch("PWD")
+    assert_equal dir, FakeAgent.captured_command[FakeAgent.captured_command.index("--dir") + 1]
     refute_includes FakeAgent.captured_environment, "DB_NAME"
     refute_includes FakeAgent.captured_environment, "RAILS_ENV"
   end

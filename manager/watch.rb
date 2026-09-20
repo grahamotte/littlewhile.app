@@ -1,8 +1,7 @@
 require_relative "lib/require"
 
 begin
-  Linear.sync_statuses
-  Linear.sync_tags
+  Sync.call
 rescue Faraday::Error => error
   puts error.full_message
 end

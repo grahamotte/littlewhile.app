@@ -183,8 +183,7 @@ class LinearTest < Minitest::Test
     assert_equal "Completed", updates.find { |variables| variables[:id] == "s-done" }.dig(:input, :name)
     assert_equal [ "Working", "Review", "Approved" ], creates.map { |input| input[:name] }
     assert_equal [ 3.0, 4.0, 5.0 ], creates.map { |input| input[:position] }
-    assert_equal 6.0, updates.find { |variables| variables[:id] == "s-done" }.dig(:input, :position)
-    assert_equal 7.0, updates.find { |variables| variables[:id] == "s-canceled" }.dig(:input, :position)
+    refute updates.any? { |variables| variables.dig(:input, :position).present? }
     assert_equal [ "s-groom" ], archives
     assert_includes output, "renamed Todo to Planned"
     assert_includes output, "renamed In Progress to Ready"
@@ -224,6 +223,29 @@ class LinearTest < Minitest::Test
     assert_equal "", output
   end
 
+  def test_sync_statuses_is_noop_when_linear_ranks_preserve_order
+    calls = stub_linear(states: ranked_started_states(ready: 0.0, working: 1000.0, review: 2000.0, approved: 3000.0))
+
+    output, = capture_io { Linear.sync_statuses }
+
+    assert_empty calls.select { |call| graphql?(call, "mutation") }
+    assert_equal "", output
+  end
+
+  def test_sync_statuses_reorders_started_group
+    calls = stub_linear(states: ranked_started_states(ready: 0.0, working: 3000.0, review: 2000.0, approved: 1000.0))
+
+    output, = capture_io { Linear.sync_statuses }
+
+    updates = calls.select { |call| graphql?(call, "mutation WorkflowStateUpdate") }.map { |call| call.dig(:payload, :variables) }
+    assert_equal [
+      { id: "s-working", input: { position: 1.0 } },
+      { id: "s-review", input: { position: 2.0 } },
+      { id: "s-approved", input: { position: 3.0 } },
+    ], updates
+    assert_equal "", output
+  end
+
   def test_sync_statuses_uses_token_workspace_and_team
     calls = stub_linear(states: synced_states)
 
@@ -255,6 +277,19 @@ class LinearTest < Minitest::Test
   def synced_states
     Linear::STATUSES.each_with_index.map do |status, index|
       position = index.to_f
+      { id: "s-#{status[:name].downcase}", **status, position: }
+    end
+  end
+
+  def ranked_started_states(ready:, working:, review:, approved:)
+    Linear::STATUSES.map do |status|
+      position = case status[:name]
+      when "Ready" then ready
+      when "Working" then working
+      when "Review" then review
+      when "Approved" then approved
+      else 0.0
+      end
       { id: "s-#{status[:name].downcase}", **status, position: }
     end
   end

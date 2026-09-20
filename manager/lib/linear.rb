@@ -85,21 +85,28 @@ class Linear
     def sync_statuses
       current = state_nodes
       used_ids = []
+      live = []
 
-      STATUSES.each_with_index do |want, index|
+      STATUSES.each do |want|
         existing = match_state(current, want, used_ids)
-        position = index.to_f
         if existing
           used_ids << existing.fetch(:id)
           input = {}
           input[:name] = want[:name] if existing[:name] != want[:name]
           input[:color] = want[:color] if existing[:color] != want[:color]
-          input[:position] = position if existing[:position] != position
-          next if input.blank?
-
-          graphql(STATE_UPDATE_MUTATION, { id: existing.fetch(:id), input: })
-          puts "renamed #{existing[:name]} to #{want[:name]}" if input[:name].present?
+          if input.present?
+            graphql(STATE_UPDATE_MUTATION, { id: existing.fetch(:id), input: })
+            puts "renamed #{existing[:name]} to #{want[:name]}" if input[:name].present?
+          end
+          live << {
+            id: existing.fetch(:id),
+            name: want[:name],
+            type: want[:type],
+            position: existing[:position],
+          }
         else
+          previous = live.reverse.find { |item| item[:type] == want[:type] }
+          position = previous.blank? ? 0.0 : previous[:position].to_f + 1.0
           graphql(
             STATE_CREATE_MUTATION,
             {
@@ -113,6 +120,7 @@ class Linear
             },
           )
           puts "created #{want[:name]}"
+          live << { name: want[:name], type: want[:type], position: }
         end
       end
 
@@ -127,6 +135,8 @@ class Linear
           raise unless error.message.to_s.include?("reserved")
         end
       end
+
+      sync_status_positions(live)
 
       @states = nil
     end
@@ -317,6 +327,22 @@ class Linear
 
     def tag_nodes
       graphql(TAGS_QUERY, { teamId: team_id }).fetch(:team).fetch(:labels).fetch(:nodes)
+    end
+
+    def sync_status_positions(live)
+      live.group_by { |item| item[:type] }.each_value do |items|
+        ordered = items.sort_by { |item| item[:position].to_f }
+        next if ordered.map { |item| item[:name] } == items.map { |item| item[:name] }
+
+        items.each_with_index do |item, index|
+          next if item[:id].blank?
+
+          position = index.to_f
+          next if item[:position].to_f == position
+
+          graphql(STATE_UPDATE_MUTATION, { id: item[:id], input: { position: } })
+        end
+      end
     end
 
     def match_state(current, want, used_ids)
