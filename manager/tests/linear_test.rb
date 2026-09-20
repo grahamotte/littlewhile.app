@@ -1,0 +1,371 @@
+require_relative "test_helper"
+
+class LinearTest < Minitest::Test
+  def test_issues_unwraps_nodes
+    stub_linear(
+      issues: [
+        { id: "item-1", identifier: "MOTO-1", url: "https://linear.app/gotte/issue/MOTO-1", state: { id: "s-ready", name: "Ready" } },
+      ],
+    )
+
+    assert_equal "item-1", Linear.issues.first.fetch(:id)
+  end
+
+  def test_issues_paginates
+    stub_linear
+    Req.stubs(:call).with do |*args, **kwargs|
+      opts = req_opts(args, kwargs)
+      next false unless graphql?(opts, "query Issues")
+
+      true
+    end.returns(
+      {
+        data: {
+          team: {
+            issues: {
+              nodes: [ { id: "item-1", identifier: "MOTO-1" } ],
+              pageInfo: { hasNextPage: true, endCursor: "cursor-1" },
+            },
+          },
+        },
+      },
+      {
+        data: {
+          team: {
+            issues: {
+              nodes: [ { id: "item-2", identifier: "MOTO-2" } ],
+              pageInfo: { hasNextPage: false, endCursor: nil },
+            },
+          },
+        },
+      },
+    )
+
+    assert_equal [ "item-1", "item-2" ], Linear.issues.map { |item| item.fetch(:id) }
+  end
+
+  def test_column_from_state_name
+    assert_equal "ready", Linear.column({ state: { id: "s-ready", name: "Ready" } })
+  end
+
+  def test_column_from_state_id
+    stub_linear
+
+    assert_equal "approved", Linear.column({ state: "s-approved" })
+  end
+
+  def test_column_blank_without_state
+    assert_nil Linear.column({})
+  end
+
+  def test_move_updates_state_id
+    calls = stub_linear
+
+    Linear.move({ id: "item-1" }, "working")
+
+    payload = calls.find { |call| graphql?(call, "mutation IssueUpdate") }
+    assert_equal Linear::HOST, payload.fetch(:url)
+    assert_equal :post, payload.fetch(:method)
+    assert_equal({ id: "item-1", input: { stateId: "s-working" } }, payload.dig(:payload, :variables))
+    assert_equal({ "Authorization" => "linear-token" }, payload.fetch(:headers))
+  end
+
+  def test_tag_adds_label
+    calls = stub_linear
+
+    Linear.tag({ id: "item-1" }, "working")
+
+    payload = calls.find { |call| graphql?(call, "mutation IssueUpdate") }
+    assert_equal({ id: "item-1", input: { addedLabelIds: [ "l-working" ] } }, payload.dig(:payload, :variables))
+  end
+
+  def test_untag_removes_label
+    calls = stub_linear
+
+    Linear.untag({ id: "item-1" }, "working")
+
+    payload = calls.find { |call| graphql?(call, "mutation IssueUpdate") }
+    assert_equal({ id: "item-1", input: { removedLabelIds: [ "l-working" ] } }, payload.dig(:payload, :variables))
+  end
+
+  def test_tagged_from_label_names
+    assert Linear.tagged?({ labels: { nodes: [ { id: "l-working", name: "working" } ] } }, "working")
+    assert Linear.tagged?({ labels: { nodes: [ { id: "l-working", name: "Working" } ] } }, "working")
+    refute Linear.tagged?({ labels: { nodes: [ { id: "l-bug", name: "bug" } ] } }, "working")
+    refute Linear.tagged?({ labels: { nodes: [] } }, "working")
+    refute Linear.tagged?({}, "working")
+  end
+
+  def test_sync_tags_creates_missing_working_tag
+    calls = stub_linear(tags: [])
+
+    output, = capture_io { Linear.sync_tags }
+
+    creates = calls.select { |call| graphql?(call, "mutation IssueLabelCreate") }.map { |call| call.dig(:payload, :variables, :input) }
+    assert_equal [ { teamId: "team-1", **Linear::TAGS.first } ], creates
+    assert_includes output, "created working tag"
+  end
+
+  def test_sync_tags_is_noop_when_working_tag_exists
+    calls = stub_linear
+
+    output, = capture_io { Linear.sync_tags }
+
+    assert_empty calls.select { |call| graphql?(call, "mutation IssueLabelCreate") }
+    assert_equal "", output
+  end
+
+  def test_identifier
+    assert_equal "MOTO-1", Linear.identifier({ identifier: "MOTO-1" })
+  end
+
+  def test_url
+    assert_equal "https://linear.app/gotte/issue/MOTO-1", Linear.url({ url: "https://linear.app/gotte/issue/MOTO-1" })
+  end
+
+  def test_selects_team_by_key
+    calls = stub_linear(
+      teams: [
+        { id: "other", key: "OTHER" },
+        { id: "team-1", key: "MOTO" },
+      ],
+    )
+
+    Linear.move({ id: "item-1" }, "working")
+
+    workspace = calls.find { |call| graphql?(call, "query Workspace") }
+    assert_equal({ key: "MOTO" }, workspace.dig(:payload, :variables))
+    states = calls.find { |call| graphql?(call, "query States") }
+    assert_equal({ teamId: "team-1" }, states.dig(:payload, :variables))
+  end
+
+  def test_rejects_wrong_workspace
+    stub_linear(organization: "acme")
+
+    error = assert_raises(RuntimeError) { Linear.issues }
+
+    assert_equal "Linear workspace is \"acme\", expected \"gotte\"", error.message
+  end
+
+  def test_rejects_missing_team
+    stub_linear(teams: [ { id: "other", key: "OTHER" } ])
+
+    error = assert_raises(RuntimeError) { Linear.issues }
+
+    assert_equal "Linear team \"MOTO\" not found", error.message
+  end
+
+  def test_raises_graphql_errors
+    stub_linear
+    Req.stubs(:call).with do |*args, **kwargs|
+      opts = req_opts(args, kwargs)
+      next false unless graphql?(opts, "query Workspace")
+
+      true
+    end.returns({ errors: [ { message: "Invalid token" } ] })
+
+    error = assert_raises(RuntimeError) { Linear.issues }
+
+    assert_equal "Invalid token", error.message
+  end
+
+  def test_sync_statuses_renames_creates_and_removes
+    calls = stub_linear(states: default_linear_states)
+
+    output, = capture_io { Linear.sync_statuses }
+
+    updates = calls.select { |call| graphql?(call, "mutation WorkflowStateUpdate") }.map { |call| call.dig(:payload, :variables) }
+    creates = calls.select { |call| graphql?(call, "mutation WorkflowStateCreate") }.map { |call| call.dig(:payload, :variables, :input) }
+    archives = calls.select { |call| graphql?(call, "mutation WorkflowStateArchive") }.map { |call| call.dig(:payload, :variables, :id) }
+
+    assert_equal "Planned", updates.find { |variables| variables[:id] == "s-todo" }.dig(:input, :name)
+    assert_equal "Ready", updates.find { |variables| variables[:id] == "s-progress" }.dig(:input, :name)
+    assert_equal "Completed", updates.find { |variables| variables[:id] == "s-done" }.dig(:input, :name)
+    assert_equal [ "Working", "Review", "Approved" ], creates.map { |input| input[:name] }
+    assert_equal [ 3.0, 4.0, 5.0 ], creates.map { |input| input[:position] }
+    assert_equal 6.0, updates.find { |variables| variables[:id] == "s-done" }.dig(:input, :position)
+    assert_equal 7.0, updates.find { |variables| variables[:id] == "s-canceled" }.dig(:input, :position)
+    assert_equal [ "s-groom" ], archives
+    assert_includes output, "renamed Todo to Planned"
+    assert_includes output, "renamed In Progress to Ready"
+    assert_includes output, "renamed Done to Completed"
+    assert_includes output, "created Working"
+    assert_includes output, "created Review"
+    assert_includes output, "created Approved"
+    assert_includes output, "removed Grooming"
+    refute_includes output, "removed Duplicate"
+    refute_includes archives, "s-dup"
+  end
+
+  def test_sync_statuses_skips_reserved_archive_errors
+    stub_linear(
+      states: synced_states + [
+        { id: "s-old", name: "Old", type: "started", color: "#f2c94c", position: 9.0 },
+      ],
+    )
+    Req.stubs(:call).with do |*args, **kwargs|
+      opts = req_opts(args, kwargs)
+      next false unless graphql?(opts, "mutation WorkflowStateArchive")
+
+      true
+    end.returns({ errors: [ { message: "unable to delete reserved state" } ] })
+
+    output, = capture_io { Linear.sync_statuses }
+
+    refute_includes output, "removed Old"
+  end
+
+  def test_sync_statuses_is_noop_when_already_synced
+    calls = stub_linear(states: synced_states)
+
+    output, = capture_io { Linear.sync_statuses }
+
+    assert_empty calls.select { |call| graphql?(call, "mutation") }
+    assert_equal "", output
+  end
+
+  def test_sync_statuses_uses_token_workspace_and_team
+    calls = stub_linear(states: synced_states)
+
+    capture_io { Linear.sync_statuses }
+
+    workspace = calls.find { |call| graphql?(call, "query Workspace") }
+    assert_equal({ "Authorization" => "linear-token" }, workspace.fetch(:headers))
+    assert_equal({ key: "MOTO" }, workspace.dig(:payload, :variables))
+  end
+
+  private
+
+  def graphql?(opts, fragment)
+    opts[:url] == Linear::HOST && opts.dig(:payload, :query).to_s.include?(fragment)
+  end
+
+  def default_linear_states
+    [
+      { id: "s-backlog", name: "Backlog", type: "backlog", color: "#f2994a", position: 0.0 },
+      { id: "s-todo", name: "Todo", type: "unstarted", color: "#e2e2e2", position: 1.0 },
+      { id: "s-groom", name: "Grooming", type: "unstarted", color: "#e2e2e2", position: 1.5 },
+      { id: "s-progress", name: "In Progress", type: "started", color: "#f2c94c", position: 2.0 },
+      { id: "s-done", name: "Done", type: "completed", color: "#5e6ad2", position: 3.0 },
+      { id: "s-canceled", name: "Canceled", type: "canceled", color: "#95a2b3", position: 4.0 },
+      { id: "s-dup", name: "Duplicate", type: "duplicate", color: "#95a2b3", position: 5.0 },
+    ]
+  end
+
+  def synced_states
+    Linear::STATUSES.each_with_index.map do |status, index|
+      position = index.to_f
+      { id: "s-#{status[:name].downcase}", **status, position: }
+    end
+  end
+
+  def stub_linear(organization: "gotte", teams: nil, states: nil, issues: nil, tags: nil)
+    calls = []
+    Req.stubs(:call).with do |*args, **kwargs|
+      opts = req_opts(args, kwargs)
+      next false unless graphql?(opts, "query Workspace")
+
+      calls << opts
+      true
+    end.returns(
+      {
+        data: {
+          organization: { urlKey: organization },
+          teams: { nodes: teams || [ { id: "team-1", key: "MOTO" } ] },
+        },
+      },
+    )
+    Req.stubs(:call).with do |*args, **kwargs|
+      opts = req_opts(args, kwargs)
+      next false unless graphql?(opts, "query States")
+
+      calls << opts
+      true
+    end.returns(
+      {
+        data: {
+          team: {
+            states: {
+              nodes: states || [
+                { id: "s-ready", name: "Ready", type: "started", color: "#f2c94c", position: 2.0 },
+                { id: "s-working", name: "Working", type: "started", color: "#f2c94c", position: 3.0 },
+                { id: "s-approved", name: "Approved", type: "started", color: "#f2c94c", position: 5.0 },
+              ],
+            },
+          },
+        },
+      },
+    )
+    Req.stubs(:call).with do |*args, **kwargs|
+      opts = req_opts(args, kwargs)
+      next false unless graphql?(opts, "query Issues")
+
+      calls << opts
+      true
+    end.returns(
+      {
+        data: {
+          team: {
+            issues: {
+              nodes: issues || [],
+              pageInfo: { hasNextPage: false, endCursor: nil },
+            },
+          },
+        },
+      },
+    )
+    Req.stubs(:call).with do |*args, **kwargs|
+      opts = req_opts(args, kwargs)
+      next false unless graphql?(opts, "mutation IssueUpdate")
+
+      calls << opts
+      true
+    end.returns({ data: { issueUpdate: { success: true } } })
+    Req.stubs(:call).with do |*args, **kwargs|
+      opts = req_opts(args, kwargs)
+      next false unless graphql?(opts, "mutation WorkflowStateCreate")
+
+      calls << opts
+      true
+    end.returns({ data: { workflowStateCreate: { success: true } } })
+    Req.stubs(:call).with do |*args, **kwargs|
+      opts = req_opts(args, kwargs)
+      next false unless graphql?(opts, "mutation WorkflowStateUpdate")
+
+      calls << opts
+      true
+    end.returns({ data: { workflowStateUpdate: { success: true } } })
+    Req.stubs(:call).with do |*args, **kwargs|
+      opts = req_opts(args, kwargs)
+      next false unless graphql?(opts, "mutation WorkflowStateArchive")
+
+      calls << opts
+      true
+    end.returns({ data: { workflowStateArchive: { success: true } } })
+    Req.stubs(:call).with do |*args, **kwargs|
+      opts = req_opts(args, kwargs)
+      next false unless graphql?(opts, "query Tags")
+
+      calls << opts
+      true
+    end.returns(
+      {
+        data: {
+          team: {
+            labels: {
+              nodes: tags || [ { id: "l-working", name: "working", color: "#eb5757" } ],
+            },
+          },
+        },
+      },
+    )
+    Req.stubs(:call).with do |*args, **kwargs|
+      opts = req_opts(args, kwargs)
+      next false unless graphql?(opts, "mutation IssueLabelCreate")
+
+      calls << opts
+      true
+    end.returns({ data: { issueLabelCreate: { success: true } } })
+    calls
+  end
+end

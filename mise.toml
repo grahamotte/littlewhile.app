@@ -21,6 +21,9 @@ run = "cd frontend && mkdir -p log && pnpm install"
 [tasks."dependencies:deploy"]
 run = "cd deploy && mkdir -p log && bundle install"
 
+[tasks."dependencies:manager"]
+run = "cd manager && mkdir -p log && bundle install"
+
 [tasks."dependencies:gems"]
 run = '''
 printf "%s\0" gems/*/ | xargs -0 -n 1 -P 4 sh -c '
@@ -215,6 +218,10 @@ run = "cd backend && rails test"
 depends = ["dependencies:deploy"]
 run = 'cd deploy && bundle exec ruby -Itests -e "Dir.glob(\"tests/**/*_test.rb\").each { |f| require_relative f }"'
 
+[tasks."test:manager"]
+depends = ["dependencies:manager"]
+run = 'cd manager && bundle exec ruby -Itests -e "Dir.glob(\"tests/**/*_test.rb\").each { |f| require_relative f }"'
+
 [tasks."test:apps"]
 run = 'cd apps/apple && cp Tests/Package.swift Package.swift && trap "rm Package.swift" EXIT && swift test --quiet --scratch-path ../../deploy/tmp/apps/swift-tests'
 
@@ -343,7 +350,7 @@ run = [
   "if [ -n \"$(git status --porcelain)\" ]; then echo 'Error: You have uncommitted changes. Please commit or stash them before merging.'; exit 1; fi",
   "git checkout master",
   "echo \"Merge recovery point: $(git rev-parse HEAD)\"",
-  "if git remote get-url upstream >/dev/null 2>&1; then git remote set-url upstream ssh://git@codeberg.org/grahamotte/codemoto.org.git; else git remote add upstream ssh://git@codeberg.org/grahamotte/codemoto.org.git; fi",
+  "if git remote get-url upstream >/dev/null 2>&1; then git remote set-url upstream git@github.com:grahamotte/codemoto.org.git; else git remote add upstream git@github.com:grahamotte/codemoto.org.git; fi",
   "git fetch upstream master",
   "if ! git merge-base HEAD upstream/master >/dev/null; then echo 'Error: This repository does not share history with Code Moto.'; exit 1; fi",
   "git merge --no-edit --no-ff upstream/master",
@@ -358,5 +365,13 @@ run = 'cd deploy && ruby simulate.rb "$usage_target"'
 run = "open apps/apple/App.xcodeproj"
 
 #
-# Application
+# Manager
 #
+
+[tasks."manager:trigger"]
+depends = ["dependencies:manager"]
+run = "cd manager && bundle exec ruby trigger.rb"
+
+[tasks."manager:watch"]
+depends = ["dependencies:manager"]
+run = "cd manager && bundle exec ruby watch.rb"

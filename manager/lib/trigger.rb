@@ -1,0 +1,107 @@
+class Trigger
+  READY = "ready"
+  WORKING = "working"
+  APPROVED = "approved"
+  COMPLETED = "completed"
+  CANCELED = "canceled"
+
+  class << self
+    def call
+      Linear.issues.group_by { |item| Linear.column(item) }.each do |column, items|
+        item = items.find { |candidate| !Linear.tagged?(candidate, WORKING) }
+        next if item.blank?
+
+        case column
+        when READY
+          Linear.move(item, WORKING)
+          begin
+            start_agent(item, work_prompt(item), directory: Worktree.open(item))
+          rescue StandardError
+            Linear.move(item, READY)
+            raise
+          end
+          puts "started working on #{Linear.identifier(item)}"
+        when APPROVED
+          start_agent(item, merge_prompt(item), directory: Worktree.directory(item))
+          puts "merging #{Linear.identifier(item)}"
+        when COMPLETED
+          start_agent(item, archive_prompt(item), directory: Worktree.root)
+          puts "archiving #{Linear.identifier(item)}"
+        when CANCELED
+          start_agent(item, cancel_prompt(item), directory: Worktree.root)
+          puts "canceling #{Linear.identifier(item)}"
+        end
+      end
+    end
+
+    private
+
+    def start_agent(item, prompt, directory:)
+      Linear.tag(item, WORKING)
+      begin
+        Agent.start(prompt, directory:)
+      rescue StandardError
+        Linear.untag(item, WORKING)
+        raise
+      end
+    end
+
+    def work_prompt(item)
+      <<~PROMPT
+        Do this Linear issue: #{Linear.url(item)}
+
+        This may be a new card or a kickback with corrections in later comments. There may already be a worktree, commits, and a PR.
+
+        1. This session is already in the card worktree. Env files and schema.rb were copied from the main checkout.
+        2. Rebase onto the current origin main. Do not hard-reset; keep existing commits.
+        3. Read the card and all comments.
+        4. Implement the work. You may edit existing commits or add new ones.
+        5. If you finish:
+           - Commit
+           - Open a GitHub PR with `gh pr create` using `GITHUB_TOKEN`
+           - Link the PR to the card
+           - Comment on the card describing what you did
+           - Remove the working tag
+           - Move the card to review
+        6. If the card is blocked or the change is not possible:
+           - Comment on the card explaining why
+           - Remove the working tag
+           - Move the card to planned
+      PROMPT
+    end
+
+    def merge_prompt(item)
+      <<~PROMPT
+        This Linear issue is approved: #{Linear.url(item)}
+
+        1. Rebase the GitHub PR on the card. Resolve merge conflicts.
+        2. Merge the PR with `gh pr merge` using `GITHUB_TOKEN`.
+        3. Remove any worktrees created for this card.
+        4. Move the card to completed.
+        5. Remove the working tag.
+      PROMPT
+    end
+
+    def archive_prompt(item)
+      identifier = Linear.identifier(item)
+      <<~PROMPT
+        This Linear issue is completed: #{Linear.url(item)}
+
+        1. Read the card and all comments.
+        2. Create a markdown file at cards/#{identifier}.md containing all prompts, comments, and data from the card. If there are assets like an image, describe and/or transcribe them in the markdown.
+        3. Commit, open a GitHub PR with `gh pr create` using `GITHUB_TOKEN`, and merge it with `gh pr merge`.
+        4. Remove any worktrees created for this card.
+        5. Delete the Linear card.
+      PROMPT
+    end
+
+    def cancel_prompt(item)
+      <<~PROMPT
+        This Linear issue is canceled: #{Linear.url(item)}
+
+        1. Remove any worktrees created for this card.
+        2. Delete the Linear card.
+      PROMPT
+    end
+  end
+end

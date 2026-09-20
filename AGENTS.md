@@ -16,6 +16,7 @@ The "Repo Specific" section blow contains rules specific to this repo only.
 4. Lint, type-check, and test code changes using the tasks defined in the root `mise.toml`.
 5. Use root `mise` tasks instead of invoking underlying tools directly when an applicable task exists.
 6. Do not create a canvas or visualization unless the user specifically requests one.
+7. When opening a git worktree, copy `.env.development`, `.env.production`, and `backend/db/schema.rb` from the main checkout into the worktree before running tests or mise tasks.
 
 ## Ruby
 
@@ -41,12 +42,27 @@ The "Repo Specific" section blow contains rules specific to this repo only.
 - After every code change, run the whole suite with `mise test`.
 - Do not write integration tests.
 
-## Kanban
+## Linear
 
-- `kanban/` is the repository's local work board. When using it, read and follow `kanban/README.md`.
-- Only use the Kanban board when the user asks to create or manage cards, or asks for work on an existing card. Other work does not require a card.
-- Never create a card unless the user explicitly instructs you to do so.
-- When the user requests standalone card management, commit only the requested card changes immediately without asking for confirmation.
+Work items live in Linear. Use the Linear MCP tools. Never guess a state id.
+
+Columns, in order: `backlog`, `planned`, `ready`, `working`, `review`, `approved`, `completed`, `canceled`.
+
+Cards being processed have the `working` tag. Remove it when you finish.
+
+- Read a card: `get_issue` with the identifier in the URL (e.g. `MOTO-1`). Then `list_comments` with that issue's `id`.
+- Comment: `save_comment` with `issueId` and `body`.
+- Move a card: `save_issue` with `id` and `state` set to the column name.
+- Link a PR: `save_issue` with `id` and `links: [{ url, title }]`.
+- Tag a card: `save_issue` with `id` and `addedLabels` set to the tag names.
+- Untag a card: `save_issue` with `id` and `removedLabels` set to the tag names.
+
+## GitHub
+
+Open pull requests on GitHub with `gh`, using `GITHUB_TOKEN` from the environment.
+
+- Push the branch, then `gh pr create`.
+- Merge with `gh pr merge`.
 
 ## File Structure
 
@@ -61,7 +77,7 @@ The "Repo Specific" section blow contains rules specific to this repo only.
 - `frontend/` - React website.
 - `frontend/subdomains.json` - Website subdomain configuration.
 - `gems/` - Shared Ruby gems.
-- `kanban/` - Repository-local work board and workflow instructions.
+- `manager/` - Linear issue polling and agent triggers.
 - `scripts/` - General-purpose scripts.
 - `mise.toml` - Project tooling and task definitions.
 
