@@ -11,7 +11,7 @@ private enum MrSmilesPalette {
 
 enum MrSmilesEyeMetrics {
     static let heartWidth: CGFloat = 0.30
-    static let heartHeight: CGFloat = 0.28
+    static let heartHeight: CGFloat = 0.33
     static let starSize: CGFloat = 0.30
 }
 
@@ -265,34 +265,39 @@ struct MrSmilesStar: Shape {
 
 struct MrSmilesHeart: Shape {
     func path(in rect: CGRect) -> Path {
+        let steps = 80
+        let samples: [(Double, Double)] = (0..<steps).map { index in
+            let t = Double(index) / Double(steps) * 2 * .pi
+            let sine = sin(t)
+            let x = 16 * sine * sine * sine
+            let y = 13 * cos(t) - 5 * cos(2 * t) - 2 * cos(3 * t) - cos(4 * t)
+            return (x, y)
+        }
+        let xs = samples.map { $0.0 }
+        let ys = samples.map { $0.1 }
+        guard
+            let xMin = xs.min(),
+            let xMax = xs.max(),
+            let yMin = ys.min(),
+            let yMax = ys.max(),
+            xMax > xMin,
+            yMax > yMin
+        else {
+            return Path()
+        }
+
         var path = Path()
-        let width = rect.width
-        let height = rect.height
-        path.move(to: CGPoint(x: width * 0.42, y: height * 0.76))
-        path.addCurve(
-            to: CGPoint(x: width * 0.06, y: height * 0.38),
-            control1: CGPoint(x: width * 0.24, y: height * 0.66),
-            control2: CGPoint(x: width * 0.00, y: height * 0.54),
-        )
-        path.addCurve(
-            to: CGPoint(x: width * 0.50, y: height * 0.32),
-            control1: CGPoint(x: width * 0.12, y: height * 0.12),
-            control2: CGPoint(x: width * 0.40, y: height * 0.14),
-        )
-        path.addCurve(
-            to: CGPoint(x: width * 0.94, y: height * 0.38),
-            control1: CGPoint(x: width * 0.60, y: height * 0.14),
-            control2: CGPoint(x: width * 0.88, y: height * 0.12),
-        )
-        path.addCurve(
-            to: CGPoint(x: width * 0.58, y: height * 0.76),
-            control1: CGPoint(x: width * 1.00, y: height * 0.54),
-            control2: CGPoint(x: width * 0.76, y: height * 0.66),
-        )
-        path.addQuadCurve(
-            to: CGPoint(x: width * 0.42, y: height * 0.76),
-            control: CGPoint(x: width * 0.50, y: height * 0.88),
-        )
+        for (index, sample) in samples.enumerated() {
+            let point = CGPoint(
+                x: rect.minX + (sample.0 - xMin) / (xMax - xMin) * rect.width,
+                y: rect.minY + (yMax - sample.1) / (yMax - yMin) * rect.height,
+            )
+            if index == 0 {
+                path.move(to: point)
+            } else {
+                path.addLine(to: point)
+            }
+        }
         path.closeSubpath()
         return path
     }

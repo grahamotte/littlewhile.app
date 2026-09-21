@@ -12,17 +12,17 @@ final class MrSmilesTimerViewTests: XCTestCase {
         XCTAssertEqual(MrSmilesEyeMetrics.heartWidth, MrSmilesEyeMetrics.starSize, accuracy: 0.0001)
     }
 
-    func testHeartHasRoundLobesAndAWideBottom() {
+    func testHeartMatchesClassicHeartEyesShape() {
         let path = MrSmilesHeart().path(in: rect).cgPath
 
         XCTAssertTrue(path.contains(CGPoint(x: 50, y: 50)))
-        XCTAssertTrue(path.contains(CGPoint(x: 28, y: 32)))
-        XCTAssertTrue(path.contains(CGPoint(x: 72, y: 32)))
-        XCTAssertTrue(path.contains(CGPoint(x: 50, y: 78)))
-        XCTAssertTrue(path.contains(CGPoint(x: 44, y: 76)))
-        XCTAssertTrue(path.contains(CGPoint(x: 56, y: 76)))
-        XCTAssertFalse(path.contains(CGPoint(x: 50, y: 96)))
-        XCTAssertFalse(path.contains(CGPoint(x: 8, y: 8)))
+        XCTAssertTrue(path.contains(CGPoint(x: 28, y: 22)))
+        XCTAssertTrue(path.contains(CGPoint(x: 72, y: 22)))
+        XCTAssertTrue(path.contains(CGPoint(x: 50, y: 88)))
+        XCTAssertFalse(path.contains(CGPoint(x: 50, y: 12)))
+        XCTAssertFalse(path.contains(CGPoint(x: 2, y: 2)))
+        XCTAssertFalse(path.contains(CGPoint(x: 20, y: 82)))
+        XCTAssertFalse(path.contains(CGPoint(x: 80, y: 82)))
     }
 
     func testStarHasChubbyRoundedPoints() {
