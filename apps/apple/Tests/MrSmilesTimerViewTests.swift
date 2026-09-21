@@ -12,6 +12,19 @@ final class MrSmilesTimerViewTests: XCTestCase {
         XCTAssertEqual(MrSmilesEyeMetrics.heartWidth, MrSmilesEyeMetrics.starSize, accuracy: 0.0001)
     }
 
+    func testHeartAndStarEyesTiltInwardAndSitFartherApart() {
+        XCTAssertGreaterThan(MrSmilesEyeMetrics.inwardRotation, 10)
+        XCTAssertEqual(MrSmilesEyeMetrics.rotation(isLeft: true), -MrSmilesEyeMetrics.inwardRotation, accuracy: 0.0001)
+        XCTAssertEqual(MrSmilesEyeMetrics.rotation(isLeft: false), MrSmilesEyeMetrics.inwardRotation, accuracy: 0.0001)
+        XCTAssertLessThan(MrSmilesEyeMetrics.symbolX, MrSmilesEyeMetrics.openX)
+        XCTAssertEqual(MrSmilesEyeMetrics.centerX(isLeft: true, symbol: true), MrSmilesEyeMetrics.symbolX, accuracy: 0.0001)
+        XCTAssertEqual(MrSmilesEyeMetrics.centerX(isLeft: false, symbol: true), 1 - MrSmilesEyeMetrics.symbolX, accuracy: 0.0001)
+        XCTAssertGreaterThan(
+            MrSmilesEyeMetrics.centerX(isLeft: false, symbol: true) - MrSmilesEyeMetrics.centerX(isLeft: true, symbol: true),
+            MrSmilesEyeMetrics.centerX(isLeft: false, symbol: false) - MrSmilesEyeMetrics.centerX(isLeft: true, symbol: false),
+        )
+    }
+
     func testHeartHasCircularLobesAndARightAnglePoint() {
         let path = MrSmilesHeart().path(in: rect).cgPath
 

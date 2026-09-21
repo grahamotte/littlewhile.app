@@ -13,6 +13,18 @@ enum MrSmilesEyeMetrics {
     static let heartWidth: CGFloat = 0.30
     static let heartHeight: CGFloat = 0.33
     static let starSize: CGFloat = 0.30
+    static let inwardRotation: CGFloat = 16
+    static let symbolX: CGFloat = 0.30
+    static let openX: CGFloat = 0.34
+
+    static func centerX(isLeft: Bool, symbol: Bool) -> CGFloat {
+        let x = symbol ? symbolX : openX
+        return isLeft ? x : 1 - x
+    }
+
+    static func rotation(isLeft: Bool) -> CGFloat {
+        isLeft ? -inwardRotation : inwardRotation
+    }
 }
 
 struct MrSmilesTimerView: View {
@@ -207,11 +219,9 @@ private struct MrSmilesFace: View {
                         endPoint: .bottomTrailing,
                     ))
 
-                eye(paused: paused, completed: completed, resting: resting, winking: leftEyeWinking, side: side)
-                    .position(x: side * 0.34, y: side * 0.38)
+                eye(paused: paused, completed: completed, resting: resting, winking: leftEyeWinking, isLeft: true, side: side)
 
-                eye(paused: paused, completed: completed, resting: resting, winking: rightEyeWinking, side: side)
-                    .position(x: side * 0.66, y: side * 0.38)
+                eye(paused: paused, completed: completed, resting: resting, winking: rightEyeWinking, isLeft: false, side: side)
 
                 MrSmilesMouth()
                     .stroke(MrSmilesPalette.ink, style: StrokeStyle(lineWidth: side * 0.043, lineCap: .round))
@@ -221,27 +231,40 @@ private struct MrSmilesFace: View {
     }
 
     @ViewBuilder
-    private func eye(paused: Bool, completed: Bool, resting: Bool, winking: Bool, side: CGFloat) -> some View {
+    private func eye(paused: Bool, completed: Bool, resting: Bool, winking: Bool, isLeft: Bool, side: CGFloat) -> some View {
+        let symbol = completed || resting
+        let position = CGPoint(
+            x: side * MrSmilesEyeMetrics.centerX(isLeft: isLeft, symbol: symbol),
+            y: side * 0.38,
+        )
+
         if completed {
             MrSmilesHeart()
                 .fill(MrSmilesPalette.love)
                 .frame(width: side * MrSmilesEyeMetrics.heartWidth, height: side * MrSmilesEyeMetrics.heartHeight)
+                .rotationEffect(.degrees(MrSmilesEyeMetrics.rotation(isLeft: isLeft)))
+                .position(position)
         } else if resting {
             MrSmilesStar()
                 .fill(MrSmilesPalette.ink)
                 .frame(width: side * MrSmilesEyeMetrics.starSize, height: side * MrSmilesEyeMetrics.starSize)
+                .rotationEffect(.degrees(MrSmilesEyeMetrics.rotation(isLeft: isLeft)))
+                .position(position)
         } else if paused {
             Capsule()
                 .fill(MrSmilesPalette.ink)
                 .frame(width: side * 0.072, height: side * 0.24)
+                .position(position)
         } else if winking {
             MrSmilesWink()
                 .stroke(MrSmilesPalette.ink, style: StrokeStyle(lineWidth: side * 0.042, lineCap: .round))
                 .frame(width: side * 0.16, height: side * 0.075)
+                .position(position)
         } else {
             Circle()
                 .fill(MrSmilesPalette.ink)
                 .frame(width: side * 0.105, height: side * 0.105)
+                .position(position)
         }
     }
 }
