@@ -35,6 +35,33 @@ class TriggerTest < Minitest::Test
     refute_includes prompt, "Open a worktree."
     refute calls.any? { |call| call[:prompt].to_s.include?("MOTO-2") }
     assert_equal Worktree.path_for({ identifier: "MOTO-1" }), directory_for(calls, "MOTO-1")
+    assert_equal "xai/grok-4.6", session_for(calls, "MOTO-1").fetch(:model)
+    assert_equal "high", session_for(calls, "MOTO-1").fetch(:variant)
+  end
+
+  def test_starts_agent_with_model_and_variant_labels
+    calls = stub_manager(
+      items: [
+        {
+          id: "item-1",
+          identifier: "MOTO-1",
+          url: "https://linear.app/gotte/issue/MOTO-1",
+          state: { id: "s-ready", name: "Ready" },
+          labels: {
+            nodes: [
+              { id: "l-model", name: "model: anthropic/claude-sonnet-4" },
+              { id: "l-variant", name: "variant: medium" },
+            ],
+          },
+        },
+      ],
+    )
+
+    capture_io { Trigger.call }
+
+    session = session_for(calls, "MOTO-1")
+    assert_equal "anthropic/claude-sonnet-4", session.fetch(:model)
+    assert_equal "medium", session.fetch(:variant)
   end
 
   def test_starts_merge_agent_for_approved_cards
@@ -116,53 +143,20 @@ class TriggerTest < Minitest::Test
     )
   end
 
-  def test_starts_archive_agent_for_completed_cards
+  def test_skips_completed_and_canceled_cards
     calls = stub_manager(
       items: [
         { id: "item-4", identifier: "MOTO-4", url: "https://linear.app/gotte/issue/MOTO-4", state: { id: "s-completed", name: "Completed" } },
-      ],
-    )
-
-    output, = capture_io { Trigger.call }
-
-    assert_equal "archiving MOTO-4\n", output
-    assert_equal(
-      [ { addedLabelIds: [ "l-working" ] } ],
-      issue_update_inputs(calls),
-    )
-    prompt = prompt_for(calls, "MOTO-4")
-    assert_includes prompt, "This Linear issue is completed: https://linear.app/gotte/issue/MOTO-4"
-    assert_includes prompt, "Create a markdown file at cards/MOTO-4.md"
-    assert_includes prompt, "If there are assets like an image, describe and/or transcribe them in the markdown."
-    assert_includes prompt, "open a GitHub PR with `gh pr create` using `GITHUB_TOKEN`"
-    assert_includes prompt, "merge it with `gh pr merge`"
-    assert_includes prompt, "Remove any worktrees created for this card."
-    assert_includes prompt, "Delete the Linear card."
-    refute_includes prompt, "Remove the working tag"
-    assert_equal Worktree.root, directory_for(calls, "MOTO-4")
-  end
-
-  def test_starts_cancel_agent_for_canceled_cards
-    calls = stub_manager(
-      items: [
         { id: "item-5", identifier: "MOTO-5", url: "https://linear.app/gotte/issue/MOTO-5", state: { id: "s-canceled", name: "Canceled" } },
       ],
     )
 
     output, = capture_io { Trigger.call }
 
-    assert_equal "canceling MOTO-5\n", output
-    assert_equal(
-      [ { addedLabelIds: [ "l-working" ] } ],
-      issue_update_inputs(calls),
-    )
-    prompt = prompt_for(calls, "MOTO-5")
-    assert_includes prompt, "This Linear issue is canceled: https://linear.app/gotte/issue/MOTO-5"
-    assert_includes prompt, "Remove any worktrees created for this card."
-    assert_includes prompt, "Delete the Linear card."
-    refute_includes prompt, "Create a markdown file"
-    refute_includes prompt, "Remove the working tag"
-    assert_equal Worktree.root, directory_for(calls, "MOTO-5")
+    assert_equal "", output
+    assert_empty issue_update_inputs(calls)
+    refute calls.any? { |call| call[:prompt].to_s.include?("MOTO-4") }
+    refute calls.any? { |call| call[:prompt].to_s.include?("MOTO-5") }
   end
 
   def test_starts_one_agent_per_step
@@ -181,16 +175,16 @@ class TriggerTest < Minitest::Test
 
     output, = capture_io { Trigger.call }
 
-    assert_equal "started working on MOTO-1\nmerging MOTO-3\narchiving MOTO-4\ncanceling MOTO-5\n", output
-    assert_equal 5, calls.count { |call| graphql?(call, "mutation IssueUpdate") }
+    assert_equal "started working on MOTO-1\nmerging MOTO-3\n", output
+    assert_equal 3, calls.count { |call| graphql?(call, "mutation IssueUpdate") }
     refute calls.any? { |call| call[:prompt].to_s.include?("MOTO-8") }
     refute calls.any? { |call| call[:prompt].to_s.include?("MOTO-9") }
     refute calls.any? { |call| call[:prompt].to_s.include?("MOTO-10") }
     refute calls.any? { |call| call[:prompt].to_s.include?("MOTO-12") }
+    refute calls.any? { |call| call[:prompt].to_s.include?("MOTO-4") }
+    refute calls.any? { |call| call[:prompt].to_s.include?("MOTO-5") }
     assert prompt_for(calls, "MOTO-1")
     assert prompt_for(calls, "MOTO-3")
-    assert prompt_for(calls, "MOTO-4")
-    assert prompt_for(calls, "MOTO-5")
   end
 
   def test_handles_ready_and_approved_together
@@ -246,20 +240,20 @@ class TriggerTest < Minitest::Test
   def test_skips_cards_with_working_tag
     calls = stub_manager(
       items: [
-        { id: "item-4", identifier: "MOTO-4", url: "https://linear.app/gotte/issue/MOTO-4", state: { id: "s-completed", name: "Completed" }, labels: { nodes: [ { id: "l-working", name: "working" } ] } },
-        { id: "item-10", identifier: "MOTO-10", url: "https://linear.app/gotte/issue/MOTO-10", state: { id: "s-completed", name: "Completed" } },
+        { id: "item-3", identifier: "MOTO-3", url: "https://linear.app/gotte/issue/MOTO-3", state: { id: "s-approved", name: "Approved" }, labels: { nodes: [ { id: "l-working", name: "working" } ] } },
+        { id: "item-9", identifier: "MOTO-9", url: "https://linear.app/gotte/issue/MOTO-9", state: { id: "s-approved", name: "Approved" } },
       ],
     )
 
     output, = capture_io { Trigger.call }
 
-    assert_equal "archiving MOTO-10\n", output
-    refute calls.any? { |call| call[:prompt].to_s.include?("MOTO-4") }
+    assert_equal "merging MOTO-9\n", output
+    refute calls.any? { |call| call[:prompt].to_s.include?("MOTO-3") }
     assert_equal(
       [ { addedLabelIds: [ "l-working" ] } ],
       issue_update_inputs(calls),
     )
-    assert_equal "item-10", calls.find { |call| graphql?(call, "mutation IssueUpdate") }.dig(:payload, :variables, :id)
+    assert_equal "item-9", calls.find { |call| graphql?(call, "mutation IssueUpdate") }.dig(:payload, :variables, :id)
   end
 
   def test_skips_column_when_all_cards_have_working_tag
@@ -303,7 +297,12 @@ class TriggerTest < Minitest::Test
       opts = req_opts(args, kwargs)
       next false unless opts[:url].to_s.end_with?("/api/openchamber/sessions")
 
-      calls << { prompt: opts.dig(:payload, :prompt), directory: opts.dig(:payload, :directory) }
+      calls << {
+        prompt: opts.dig(:payload, :prompt),
+        directory: opts.dig(:payload, :directory),
+        model: opts.dig(:payload, :model),
+        variant: opts.dig(:payload, :variant),
+      }
       true
     end.returns({ sessionId: "ses-1" })
     Req.stubs(:call).with do |*args, **kwargs|
@@ -399,6 +398,10 @@ class TriggerTest < Minitest::Test
   end
 
   def directory_for(calls, identifier)
-    calls.find { |call| call[:prompt].to_s.include?(identifier) }&.fetch(:directory)
+    session_for(calls, identifier)&.fetch(:directory)
+  end
+
+  def session_for(calls, identifier)
+    calls.find { |call| call[:prompt].to_s.include?(identifier) }
   end
 end

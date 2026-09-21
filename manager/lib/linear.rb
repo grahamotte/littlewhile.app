@@ -3,15 +3,20 @@ class Linear
   STATUSES = [
     { name: "Backlog", type: "backlog", color: "#f2994a" },
     { name: "Planned", type: "unstarted", color: "#95a2b3" },
-    { name: "Ready", type: "started", color: "#f2c94c" },
+    { name: "Ready", type: "started", color: "#26b5ce" },
     { name: "Working", type: "started", color: "#f2c94c" },
-    { name: "Review", type: "started", color: "#f2c94c" },
-    { name: "Approved", type: "started", color: "#f2c94c" },
+    { name: "Review", type: "started", color: "#f2994a" },
+    { name: "Approved", type: "started", color: "#4cb782" },
     { name: "Completed", type: "completed", color: "#5e6ad2" },
     { name: "Canceled", type: "canceled", color: "#95a2b3" },
   ].freeze
   TAGS = [
-    { name: "working", color: "#eb5757" },
+    { name: "working", color: "#f2c94c" },
+    { name: "variant: low", color: "#4cb782" },
+    { name: "variant: medium", color: "#4cb782" },
+    { name: "variant: high", color: "#4cb782" },
+    { name: "variant: xhigh", color: "#4cb782" },
+    { name: "model: xai/grok-4.6", color: "#26b5ce" },
   ].freeze
 
   class << self
@@ -82,6 +87,14 @@ class Linear
       item.fetch(:url)
     end
 
+    def model(item)
+      labeled(item, "model")
+    end
+
+    def variant(item)
+      labeled(item, "variant")
+    end
+
     def sync_statuses
       current = state_nodes
       used_ids = []
@@ -144,24 +157,44 @@ class Linear
     def sync_tags
       current = tag_nodes
       TAGS.each do |want|
-        next if current.any? { |tag| tag[:name].to_s.downcase == want[:name].downcase }
+        existing = current.find { |tag| tag[:name].to_s.downcase == want[:name].downcase }
+        if existing
+          next if existing[:color] == want[:color]
 
-        graphql(
-          TAG_CREATE_MUTATION,
-          {
-            input: {
-              teamId: team_id,
-              name: want[:name],
-              color: want[:color],
+          graphql(TAG_UPDATE_MUTATION, { id: existing.fetch(:id), input: { color: want[:color] } })
+        else
+          graphql(
+            TAG_CREATE_MUTATION,
+            {
+              input: {
+                teamId: team_id,
+                name: want[:name],
+                color: want[:color],
+              },
             },
-          },
-        )
-        puts "created #{want[:name]} tag"
+          )
+          puts "created #{want[:name]} tag"
+        end
       end
       @tags = nil
     end
 
     private
+
+    def labeled(item, key)
+      nodes = item.dig(:labels, :nodes)
+      return nil if nodes.blank?
+
+      prefix = "#{key}:"
+      nodes.each do |label|
+        name = label[:name].to_s
+        next unless name.downcase.start_with?(prefix)
+
+        value = name.split(":", 2).last.strip
+        return value if value.present?
+      end
+      nil
+    end
 
     WORKSPACE_QUERY = <<~GQL
       query Workspace($key: String!) {
@@ -260,6 +293,7 @@ class Linear
             nodes {
               id
               name
+              color
             }
           }
         }
@@ -269,6 +303,14 @@ class Linear
     TAG_CREATE_MUTATION = <<~GQL
       mutation IssueLabelCreate($input: IssueLabelCreateInput!) {
         issueLabelCreate(input: $input) {
+          success
+        }
+      }
+    GQL
+
+    TAG_UPDATE_MUTATION = <<~GQL
+      mutation IssueLabelUpdate($id: String!, $input: IssueLabelUpdateInput!) {
+        issueLabelUpdate(id: $id, input: $input) {
           success
         }
       }

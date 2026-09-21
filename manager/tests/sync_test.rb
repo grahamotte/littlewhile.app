@@ -27,6 +27,7 @@ class SyncTest < Minitest::Test
     assert_equal "", output
     assert_empty calls.select { |call| graphql?(call, "mutation WorkflowState") }
     assert_empty calls.select { |call| graphql?(call, "mutation IssueLabelCreate") }
+    assert_empty calls.select { |call| graphql?(call, "mutation IssueLabelUpdate") }
     assert_empty calls.select { |call| graphql?(call, "query Issues") }
     assert_empty calls.select { |call| graphql?(call, "mutation IssueUpdate") }
   end
@@ -49,6 +50,12 @@ class SyncTest < Minitest::Test
     Linear::STATUSES.each_with_index.map do |status, index|
       position = index.to_f
       { id: "s-#{status[:name].downcase}", **status, position: }
+    end
+  end
+
+  def synced_tags
+    Linear::TAGS.map do |tag|
+      { id: "l-#{tag[:name].downcase}", **tag }
     end
   end
 
@@ -106,7 +113,7 @@ class SyncTest < Minitest::Test
         data: {
           team: {
             labels: {
-              nodes: tags || [ { id: "l-working", name: "working", color: "#eb5757" } ],
+              nodes: tags || synced_tags,
             },
           },
         },
@@ -140,6 +147,13 @@ class SyncTest < Minitest::Test
       calls << opts
       true
     end.returns({ data: { issueLabelCreate: { success: true } } })
+    Req.stubs(:call).with do |*args, **kwargs|
+      opts = req_opts(args, kwargs)
+      next false unless graphql?(opts, "mutation IssueLabelUpdate")
+
+      calls << opts
+      true
+    end.returns({ data: { issueLabelUpdate: { success: true } } })
     calls
   end
 end

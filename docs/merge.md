@@ -76,8 +76,6 @@ AGENT_VARIANT=high
 
 Preserve downstream intent. Keep `AGENTS.md` **Repo Specific** and any extra skills that belong to the app.
 
-Incoming `cards/MOTO-*.md` are Code Moto archives; leave them.
-
 Expect conflicts in `AGENTS.md`, `mise.toml`, `.env.default`, and skill directories. Incoming Code Moto replaces kanban instructions with Linear and GitHub sections, adds `manager/`, and copies env files plus `backend/db/schema.rb` into card worktrees.
 
 After resolving conflicts, run `mise dependencies` then `mise test`.
@@ -96,7 +94,7 @@ Create a Linear team for the app. Put its key in `LINEAR_TEAM`. Configure Linear
 
 Columns, in order: `backlog`, `planned`, `ready`, `working`, `review`, `approved`, `completed`, `canceled`.
 
-Run `mise manager:sync` to sync those workflow names and create the `working` tag. Run it only against the team this repo should own.
+Run `mise manager:sync` to sync those workflow names and colors, and to create the default tags (`working`, `variant: …`, `model: …`). Run it only against the team this repo should own.
 
 ### Kanban cards
 
@@ -108,9 +106,9 @@ Create Linear issues from current kanban cards, then delete `kanban/`.
 | `2 - In Progress` | `ready` if the manager should pick it up, otherwise `working` |
 | `3 - In Review` | `review` |
 | `4 - Done` | Skip. Already shipped. |
-| `5 - Won't Do` | Skip. The manager deletes `canceled` issues. |
+| `5 - Won't Do` | Skip. |
 
-Copy the card title, user value, problem description, notes, and prompts into the Linear description. Do not import Code Moto's `cards/MOTO-*.md`. This repo's later archives go in `cards/<TEAM>-<n>.md`.
+Copy the card title, user value, problem description, notes, and prompts into the Linear description.
 
 ### Manager
 
@@ -121,7 +119,7 @@ mise manager:sync
 mise manager:watch
 ```
 
-`ready` starts an agent in `../<repo>-<identifier>` after copying `.env.development`, `.env.production`, and `backend/db/schema.rb`. `approved` merges the GitHub PR. `completed` writes `cards/<id>.md`, merges that archive PR, and deletes the Linear issue. `canceled` removes worktrees and deletes the Linear issue.
+`ready` starts an agent in `../<repo>-<identifier>` after copying `.env.development`, `.env.production`, and `backend/db/schema.rb`. `approved` merges the GitHub PR. `completed` and `canceled` stay on the board; the manager does not start agents for them.
 
 ## Verify
 
