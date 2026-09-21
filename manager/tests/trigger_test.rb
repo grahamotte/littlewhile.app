@@ -143,7 +143,7 @@ class TriggerTest < Minitest::Test
     )
   end
 
-  def test_skips_completed_and_canceled_cards
+  def test_skips_agents_for_completed_and_canceled_cards
     calls = stub_manager(
       items: [
         { id: "item-4", identifier: "MOTO-4", url: "https://linear.app/gotte/issue/MOTO-4", state: { id: "s-completed", name: "Completed" } },
@@ -157,6 +157,51 @@ class TriggerTest < Minitest::Test
     assert_empty issue_update_inputs(calls)
     refute calls.any? { |call| call[:prompt].to_s.include?("MOTO-4") }
     refute calls.any? { |call| call[:prompt].to_s.include?("MOTO-5") }
+  end
+
+  def test_removes_worktrees_for_completed_and_canceled_cards
+    completed_path = Worktree.path_for({ identifier: "MOTO-4" })
+    canceled_path = Worktree.path_for({ identifier: "MOTO-5" })
+    FileUtils.mkdir_p(completed_path)
+    FileUtils.mkdir_p(canceled_path)
+    calls = stub_manager(
+      items: [
+        { id: "item-4", identifier: "MOTO-4", url: "https://linear.app/gotte/issue/MOTO-4", state: { id: "s-completed", name: "Completed" } },
+        { id: "item-5", identifier: "MOTO-5", url: "https://linear.app/gotte/issue/MOTO-5", state: { id: "s-canceled", name: "Canceled" } },
+        { id: "item-4b", identifier: "MOTO-10", url: "https://linear.app/gotte/issue/MOTO-10", state: { id: "s-completed", name: "Completed" } },
+      ],
+    )
+
+    output, = capture_io { Trigger.call }
+
+    assert_equal "removed worktree for MOTO-4\nremoved worktree for MOTO-5\n", output
+    refute Dir.exist?(completed_path)
+    refute Dir.exist?(canceled_path)
+    assert_empty issue_update_inputs(calls)
+    refute calls.any? { |call| call[:prompt].to_s.include?("MOTO-4") }
+    refute calls.any? { |call| call[:prompt].to_s.include?("MOTO-5") }
+    refute calls.any? { |call| call[:prompt].to_s.include?("MOTO-10") }
+  end
+
+  def test_removes_completed_worktrees_even_with_working_tag
+    path = Worktree.path_for({ identifier: "MOTO-4" })
+    FileUtils.mkdir_p(path)
+    stub_manager(
+      items: [
+        {
+          id: "item-4",
+          identifier: "MOTO-4",
+          url: "https://linear.app/gotte/issue/MOTO-4",
+          state: { id: "s-completed", name: "Completed" },
+          labels: { nodes: [ { id: "l-working", name: "working" } ] },
+        },
+      ],
+    )
+
+    output, = capture_io { Trigger.call }
+
+    assert_equal "removed worktree for MOTO-4\n", output
+    refute Dir.exist?(path)
   end
 
   def test_starts_one_agent_per_step
@@ -290,6 +335,8 @@ class TriggerTest < Minitest::Test
       if args[1] == "worktree" && args[2] == "add"
         path = args[3] == "-b" ? args[5] : args[3]
         FileUtils.mkdir_p(path)
+      elsif args[1] == "worktree" && args[2] == "remove"
+        FileUtils.remove_entry(args.last) if Dir.exist?(args.last)
       end
       true
     end.returns([ "", "", ok ])

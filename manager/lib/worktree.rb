@@ -29,6 +29,14 @@ class Worktree
       Dir.exist?(path) ? path : root
     end
 
+    def remove(item)
+      path = path_for(item)
+      return false unless Dir.exist?(path)
+
+      run("git", "worktree", "remove", "--force", path)
+      true
+    end
+
     def path_for(item)
       File.expand_path("../#{File.basename(root)}-#{branch_for(item)}", root)
     end

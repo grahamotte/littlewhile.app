@@ -2,10 +2,18 @@ class Trigger
   READY = "ready"
   WORKING = "working"
   APPROVED = "approved"
+  COMPLETED = "completed"
+  CANCELED = "canceled"
 
   class << self
     def call
       Linear.issues.group_by { |item| Linear.column(item) }.each do |column, items|
+        case column
+        when COMPLETED, CANCELED
+          items.each { |item| cleanup_worktree(item) }
+          next
+        end
+
         item = items.find { |candidate| !Linear.tagged?(candidate, WORKING) }
         next if item.blank?
 
@@ -27,6 +35,12 @@ class Trigger
     end
 
     private
+
+    def cleanup_worktree(item)
+      return unless Worktree.remove(item)
+
+      puts "removed worktree for #{Linear.identifier(item)}"
+    end
 
     def start_agent(item, prompt, directory:)
       Linear.tag(item, WORKING)
