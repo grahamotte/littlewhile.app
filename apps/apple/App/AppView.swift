@@ -33,8 +33,8 @@ struct AppView: View {
         .sheet(item: $sheet) { sheet in
             switch sheet {
             case .settings:
-                RunSettingsView(currentRun: store.currentRun) { minutes, theme in
-                    store.createRun(minutes: minutes, theme: theme)
+                RunSettingsView(currentRun: store.currentRun) { minutes, restMinutes, theme in
+                    store.createRun(minutes: minutes, theme: theme, restMinutes: restMinutes)
                     synchronizeCompanion()
                 }
                 .presentationDragIndicator(.visible)
@@ -50,7 +50,7 @@ struct AppView: View {
             }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("Your progress will stay in History. A fresh run with the same time and theme will be ready to start.")
+            Text("Your progress will stay in History. A fresh run with the same times and theme will be ready to start.")
         }
         .alert("Alarm couldn’t be confirmed", isPresented: Binding(
             get: { companion?.alarmIssue != nil },

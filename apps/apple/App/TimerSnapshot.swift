@@ -11,18 +11,24 @@ struct TimerSnapshot: Equatable {
     let runID: UUID
     let sampledAt: Date
     let goalSeconds: Int
+    let restSeconds: Int
+    let totalSeconds: Int
     let elapsedSeconds: TimeInterval
     let remainingSeconds: TimeInterval
     let progress: Double
+    let isResting: Bool
     let status: Status
 
     init(run: FocusRun, at date: Date) {
         runID = run.id
         sampledAt = date
         goalSeconds = run.goalSeconds
+        restSeconds = run.restSeconds
+        totalSeconds = run.totalSeconds
         elapsedSeconds = run.elapsed(at: date)
-        remainingSeconds = run.remaining(at: date)
-        progress = run.fraction(at: date)
+        remainingSeconds = run.periodRemaining(at: date)
+        progress = run.periodProgress(at: date)
+        isResting = run.isResting(at: date)
         if run.isComplete(at: date) {
             status = .complete
         } else if run.isRunning {

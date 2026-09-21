@@ -99,7 +99,7 @@ struct MrSmilesAnimation {
               latestSnapshot.status == .running,
               snapshot.sampledAt >= latestSnapshot.sampledAt,
               date.timeIntervalSinceReferenceDate.isFinite,
-              activeElapsed(snapshot: snapshot, at: date) < TimeInterval(snapshot.goalSeconds),
+              activeElapsed(snapshot: snapshot, at: date) < TimeInterval(snapshot.totalSeconds),
               let layout else { return false }
 
         update(
@@ -134,7 +134,7 @@ struct MrSmilesAnimation {
         let interval = date.timeIntervalSince(snapshot.sampledAt)
         let additional = snapshot.status == .running && interval.isFinite ? max(0, interval) : 0
         return snapshot.status == .ready ? 0 : min(
-            TimeInterval(max(0, snapshot.goalSeconds)),
+            TimeInterval(max(0, snapshot.totalSeconds)),
             snapshot.elapsedSeconds + additional,
         )
     }

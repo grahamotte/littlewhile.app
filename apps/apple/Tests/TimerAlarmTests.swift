@@ -37,6 +37,57 @@ final class TimerAlarmTests: XCTestCase {
     }
 
     @MainActor
+    func testSchedulesFocusAndRestAlarmsUpfront() async {
+        let manager = AlarmManagerBoundary()
+        let alarm = TimerAlarm(manager: manager, now: { self.date })
+        let run = FocusRun(startedAt: date, goalSeconds: 300, restSeconds: 60, resumedAt: date)
+
+        let covered = await alarm.synchronize(run: run)
+
+        XCTAssertEqual(covered, .scheduled)
+        XCTAssertEqual(manager.schedules.map(\.id), [run.id, run.restAlarmID])
+        XCTAssertEqual(manager.schedules.map(\.deadline), [date.addingTimeInterval(300), date.addingTimeInterval(360)])
+        XCTAssertEqual(Set(manager.records.map(\.id)), [run.id, run.restAlarmID])
+    }
+
+    @MainActor
+    func testPauseCancelsFocusAndRestAlarmsAndResumeReschedulesRemainingTime() async {
+        let manager = AlarmManagerBoundary()
+        let alarm = TimerAlarm(manager: manager, now: { self.date })
+        var run = FocusRun(startedAt: date, goalSeconds: 300, restSeconds: 60, resumedAt: date)
+        _ = await alarm.synchronize(run: run)
+        run.progressSeconds = 40
+        run.resumedAt = nil
+
+        let paused = await alarm.synchronize(run: run)
+        XCTAssertEqual(paused, .unavailable)
+        XCTAssertEqual(Set(manager.cancellations), [run.id, run.restAlarmID])
+        XCTAssertTrue(manager.records.isEmpty)
+
+        manager.schedules.removeAll()
+        manager.cancellations.removeAll()
+        run.resumedAt = date
+        let resumed = await alarm.synchronize(run: run)
+        XCTAssertEqual(resumed, .scheduled)
+        XCTAssertEqual(manager.schedules.map(\.id), [run.id, run.restAlarmID])
+        XCTAssertEqual(manager.schedules.map(\.deadline), [date.addingTimeInterval(260), date.addingTimeInterval(320)])
+    }
+
+    @MainActor
+    func testResumingDuringRestOnlySchedulesTheRestAlarm() async {
+        let manager = AlarmManagerBoundary()
+        let alarm = TimerAlarm(manager: manager, now: { self.date })
+        var run = FocusRun(startedAt: date, progressSeconds: 320, goalSeconds: 300, restSeconds: 60, resumedAt: date)
+
+        let covered = await alarm.synchronize(run: run)
+
+        XCTAssertEqual(covered, .scheduled)
+        XCTAssertEqual(manager.schedules.map(\.id), [run.restAlarmID])
+        XCTAssertEqual(manager.schedules.first?.deadline, date.addingTimeInterval(40))
+        XCTAssertEqual(manager.records.map(\.id), [run.restAlarmID])
+    }
+
+    @MainActor
     func testForegroundRefreshKeepsTheExistingDeadline() async {
         let manager = AlarmManagerBoundary()
         var now = date
@@ -452,7 +503,7 @@ private final class AlarmManagerBoundary: TimerAlarmManager {
         return records
     }
 
-    func schedule(id: UUID, deadline: Date) async throws {
+    func schedule(id: UUID, deadline: Date, runID: UUID, phase: TimerAlarmPhase) async throws {
         schedules.append((id, deadline))
         if deferSchedule {
             await withCheckedContinuation { continuation in

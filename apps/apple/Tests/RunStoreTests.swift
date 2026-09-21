@@ -14,6 +14,7 @@ final class RunStoreTests: XCTestCase {
             XCTAssertTrue(store.history.isEmpty)
             XCTAssertEqual(store.currentRun.createdAt, date)
             XCTAssertEqual(store.currentRun.goalSeconds, 1_500)
+            XCTAssertEqual(store.currentRun.restSeconds, 300)
             XCTAssertEqual(store.currentRun.theme, "boring")
             XCTAssertFalse(store.currentRun.hasStarted)
             XCTAssertFalse(store.currentRun.isRunning)
@@ -135,7 +136,7 @@ final class RunStoreTests: XCTestCase {
 
             store.pause(at: date.addingTimeInterval(2_000))
 
-            XCTAssertEqual(store.currentRun.progressSeconds, 1_500)
+            XCTAssertEqual(store.currentRun.progressSeconds, 1_800)
             XCTAssertFalse(store.currentRun.isRunning)
         }
     }
@@ -214,6 +215,12 @@ final class RunStoreTests: XCTestCase {
             XCTAssertEqual(store.currentRun.goalSeconds, 7_200)
             store.createRun(minutes: 25, theme: "boring", at: date)
             XCTAssertEqual(store.currentRun.goalSeconds, 1_500)
+            store.createRun(minutes: 25, theme: "boring", restMinutes: Int.min, at: date)
+            XCTAssertEqual(store.currentRun.restSeconds, 0)
+            store.createRun(minutes: 25, theme: "boring", restMinutes: Int.max, at: date)
+            XCTAssertEqual(store.currentRun.restSeconds, 7_200)
+            store.createRun(minutes: 25, theme: "boring", restMinutes: 5, at: date)
+            XCTAssertEqual(store.currentRun.restSeconds, 300)
         }
     }
 
@@ -225,6 +232,21 @@ final class RunStoreTests: XCTestCase {
             XCTAssertEqual(store.currentRun.theme, "boring")
             store.createRun(minutes: 25, theme: "garden", at: date)
             XCTAssertEqual(store.currentRun.theme, "garden")
+        }
+    }
+
+    func testRestorationTreatsMissingRestSecondsAsZero() async throws {
+        try withDefaults { defaults in
+            let run = FocusRun(createdAt: date, goalSeconds: 1_200, theme: "garden")
+            let encoded = try JSONSerialization.jsonObject(with: JSONEncoder().encode([run]))
+            var objects = try XCTUnwrap(encoded as? [[String: Any]])
+            objects[0].removeValue(forKey: "restSeconds")
+            defaults.set(try JSONSerialization.data(withJSONObject: objects), forKey: storageKey)
+
+            let store = RunStore(defaults: defaults, now: date)
+
+            XCTAssertEqual(store.currentRun.restSeconds, 0)
+            XCTAssertEqual(store.currentRun.goalSeconds, 1_200)
         }
     }
 
@@ -240,6 +262,22 @@ final class RunStoreTests: XCTestCase {
         }
     }
 
+    func testSetAndRestartPreserveRestDuration() async throws {
+        try withDefaults { defaults in
+            let store = RunStore(defaults: defaults, now: date)
+            store.createRun(minutes: 25, theme: "garden", restMinutes: 8, at: date)
+            store.start(at: date)
+
+            store.restart(at: date.addingTimeInterval(30))
+
+            XCTAssertEqual(store.currentRun.goalSeconds, 1_500)
+            XCTAssertEqual(store.currentRun.restSeconds, 480)
+            XCTAssertEqual(store.currentRun.theme, "garden")
+            XCTAssertEqual(store.history[0].restSeconds, 480)
+            XCTAssertEqual(try savedRuns(defaults), store.runs)
+        }
+    }
+
     func testRestartArchivesProgressAndPreservesSettingsInReadyRun() async throws {
         try withDefaults { defaults in
             let store = RunStore(defaults: defaults, now: date)
@@ -251,6 +289,7 @@ final class RunStoreTests: XCTestCase {
 
             XCTAssertNotEqual(store.currentRun.id, oldIdentifier)
             XCTAssertEqual(store.currentRun.goalSeconds, 2_400)
+            XCTAssertEqual(store.currentRun.restSeconds, 0)
             XCTAssertEqual(store.currentRun.theme, "garden")
             XCTAssertEqual(store.currentRun.progressSeconds, 0)
             XCTAssertFalse(store.currentRun.hasStarted)
@@ -314,7 +353,7 @@ final class RunStoreTests: XCTestCase {
 
             let restored = RunStore(defaults: defaults, now: date.addingTimeInterval(10_000))
 
-            XCTAssertEqual(restored.currentRun.progressSeconds, 1_500)
+            XCTAssertEqual(restored.currentRun.progressSeconds, 1_800)
             XCTAssertFalse(restored.currentRun.isRunning)
             XCTAssertEqual(try savedRuns(defaults), restored.runs)
         }

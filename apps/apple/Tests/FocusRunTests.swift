@@ -9,6 +9,7 @@ final class FocusRunTests: XCTestCase {
 
         XCTAssertEqual(run.createdAt, date)
         XCTAssertEqual(run.goalSeconds, 1_500)
+        XCTAssertEqual(run.restSeconds, 0)
         XCTAssertEqual(run.theme, "boring")
         XCTAssertEqual(run.elapsed(at: date), 0)
         XCTAssertEqual(run.remaining(at: date), 1_500)
@@ -104,6 +105,7 @@ final class FocusRunTests: XCTestCase {
             startedAt: date.addingTimeInterval(30),
             progressSeconds: 24.125,
             goalSeconds: 900,
+            restSeconds: 180,
             theme: "future-theme",
             resumedAt: date.addingTimeInterval(100),
         )
@@ -121,5 +123,41 @@ final class FocusRunTests: XCTestCase {
         XCTAssertEqual(decoded, run)
         XCTAssertNil(decoded.startedAt)
         XCTAssertNil(decoded.resumedAt)
+    }
+
+    func testMissingRestSecondsDecodesAsZero() throws {
+        let run = FocusRun(createdAt: date, goalSeconds: 600, theme: "boring")
+        var object = try XCTUnwrap(JSONSerialization.jsonObject(with: JSONEncoder().encode(run)) as? [String: Any])
+        object.removeValue(forKey: "restSeconds")
+
+        let decoded = try JSONDecoder().decode(FocusRun.self, from: JSONSerialization.data(withJSONObject: object))
+
+        XCTAssertEqual(decoded.restSeconds, 0)
+        XCTAssertEqual(decoded.goalSeconds, 600)
+    }
+
+    func testRestPeriodStartsAfterFocusAndCompletesAtTotal() {
+        let run = FocusRun(createdAt: date, startedAt: date, goalSeconds: 60, restSeconds: 30, resumedAt: date)
+
+        XCTAssertFalse(run.isResting(at: date.addingTimeInterval(59)))
+        XCTAssertEqual(run.periodRemaining(at: date.addingTimeInterval(20)), 40)
+        XCTAssertEqual(run.periodProgress(at: date.addingTimeInterval(20)), 20.0 / 60, accuracy: 0.0001)
+        XCTAssertTrue(run.isResting(at: date.addingTimeInterval(60)))
+        XCTAssertEqual(run.periodRemaining(at: date.addingTimeInterval(75)), 15)
+        XCTAssertEqual(run.periodProgress(at: date.addingTimeInterval(75)), 0.5, accuracy: 0.0001)
+        XCTAssertFalse(run.isComplete(at: date.addingTimeInterval(89.999)))
+        XCTAssertTrue(run.isComplete(at: date.addingTimeInterval(90)))
+        XCTAssertEqual(run.remaining(at: date), 90)
+        XCTAssertEqual(run.focusRemaining(at: date.addingTimeInterval(75)), 0)
+        XCTAssertNotEqual(run.restAlarmID, run.id)
+        XCTAssertEqual(run.restAlarmID, run.restAlarmID)
+    }
+
+    func testZeroRestNeverEntersRestAndCompletesAtFocus() {
+        let run = FocusRun(createdAt: date, startedAt: date, goalSeconds: 60, restSeconds: 0, resumedAt: date)
+
+        XCTAssertFalse(run.isResting(at: date.addingTimeInterval(60)))
+        XCTAssertTrue(run.isComplete(at: date.addingTimeInterval(60)))
+        XCTAssertEqual(run.periodProgress(at: date.addingTimeInterval(60)), 1)
     }
 }

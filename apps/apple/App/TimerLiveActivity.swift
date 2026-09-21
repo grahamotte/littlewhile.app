@@ -114,7 +114,7 @@ final class TimerLiveActivity {
             }
         } else if run.isRunning, !complete, creationRunID == run.id, client.canRequest {
             creationRunID = nil
-            let attributes = TimerActivityAttributes(runID: run.id, goalSeconds: run.goalSeconds)
+            let attributes = TimerActivityAttributes(runID: run.id, goalSeconds: run.goalSeconds, restSeconds: run.restSeconds)
             try? client.request(attributes: attributes, state: state)
         }
     }

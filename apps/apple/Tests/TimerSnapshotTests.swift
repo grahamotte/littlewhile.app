@@ -54,4 +54,25 @@ final class TimerSnapshotTests: XCTestCase {
         let run = FocusRun(createdAt: date, goalSeconds: 7200)
         XCTAssertEqual(TimerSnapshot(run: run, at: date).clockText, "120:00")
     }
+
+    func testRestResetsClockAndProgressUntilTheBreakCompletes() {
+        let run = FocusRun(createdAt: date, startedAt: date, goalSeconds: 60, restSeconds: 30, resumedAt: date)
+        let focusing = TimerSnapshot(run: run, at: date.addingTimeInterval(20))
+        XCTAssertFalse(focusing.isResting)
+        XCTAssertEqual(focusing.status, .running)
+        XCTAssertEqual(focusing.clockText, "00:40")
+        XCTAssertEqual(focusing.progress, 20.0 / 60, accuracy: 0.0001)
+
+        let resting = TimerSnapshot(run: run, at: date.addingTimeInterval(75))
+        XCTAssertTrue(resting.isResting)
+        XCTAssertEqual(resting.status, .running)
+        XCTAssertEqual(resting.clockText, "00:15")
+        XCTAssertEqual(resting.progress, 0.5, accuracy: 0.0001)
+
+        let complete = TimerSnapshot(run: run, at: date.addingTimeInterval(90))
+        XCTAssertFalse(complete.isResting)
+        XCTAssertEqual(complete.status, .complete)
+        XCTAssertEqual(complete.clockText, "00:00")
+        XCTAssertEqual(complete.progress, 1)
+    }
 }

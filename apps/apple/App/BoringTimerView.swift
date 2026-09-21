@@ -26,7 +26,7 @@ struct BoringTimerView: View {
                 }
                 .frame(width: diameter, height: diameter)
                 .accessibilityElement(children: .ignore)
-                .accessibilityLabel("\(accessibilityStatus). \(snapshot.clockText) remaining. \(snapshot.goalSeconds / 60) minute run.")
+                .accessibilityLabel("\(accessibilityStatus). \(snapshot.clockText) remaining. \(snapshot.goalSeconds / 60) minute focus. \(snapshot.restSeconds / 60) minute rest.")
                 .foregroundStyle(BoringPalette.ink)
             }
         }
@@ -35,8 +35,8 @@ struct BoringTimerView: View {
     private var accessibilityStatus: String {
         switch snapshot.status {
         case .ready: "Ready"
-        case .running: "Running"
-        case .paused: "Paused"
+        case .running: snapshot.isResting ? "Resting" : "Focusing"
+        case .paused: snapshot.isResting ? "Rest paused" : "Paused"
         case .complete: "Complete"
         }
     }

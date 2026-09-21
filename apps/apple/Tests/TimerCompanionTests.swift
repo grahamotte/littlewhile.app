@@ -209,7 +209,7 @@ private final class CompanionAlarmBoundary: TimerAlarmManager {
         return records
     }
 
-    func schedule(id: UUID, deadline: Date) async throws {
+    func schedule(id: UUID, deadline: Date, runID: UUID, phase: TimerAlarmPhase) async throws {
         if deferSchedule {
             await withCheckedContinuation { continuation in
                 self.continuation = continuation

@@ -46,11 +46,12 @@ struct MrSmilesTimerView: View {
                             .foregroundStyle(MrSmilesPalette.clock)
                             .padding(.trailing, max(30, safeGeometry.safeAreaInsets.trailing + 24))
                             .padding(.bottom, max(26, safeGeometry.safeAreaInsets.bottom + 15))
-                            .accessibilityLabel("\(accessibilityStatus). \(snapshot.clockText) remaining. \(snapshot.goalSeconds / 60) minute run.")
+                            .accessibilityLabel("\(accessibilityStatus). \(snapshot.clockText) remaining. \(snapshot.goalSeconds / 60) minute focus. \(snapshot.restSeconds / 60) minute rest.")
 
                         MrSmilesFace(
                             paused: snapshot.status == .paused,
                             completed: snapshot.status == .complete,
+                            resting: snapshot.isResting,
                             leftEyeWinking: snapshot.status == .running && (frame.motion?.leftEyeWinking ?? false),
                             rightEyeWinking: snapshot.status == .running && (frame.motion?.rightEyeWinking ?? false),
                         )
@@ -154,8 +155,8 @@ struct MrSmilesTimerView: View {
     private var accessibilityStatus: String {
         switch snapshot.status {
         case .ready: "Ready"
-        case .running: "Running"
-        case .paused: "Paused"
+        case .running: snapshot.isResting ? "Resting" : "Focusing"
+        case .paused: snapshot.isResting ? "Rest paused" : "Paused"
         case .complete: "Complete"
         }
     }
@@ -171,7 +172,7 @@ struct MrSmilesThemePreview: View {
                 .foregroundStyle(MrSmilesPalette.clock)
                 .padding(16)
 
-            MrSmilesFace(paused: false, completed: false, leftEyeWinking: false, rightEyeWinking: true)
+            MrSmilesFace(paused: false, completed: false, resting: false, leftEyeWinking: false, rightEyeWinking: true)
                 .frame(width: 66, height: 66)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
@@ -183,6 +184,7 @@ struct MrSmilesThemePreview: View {
 private struct MrSmilesFace: View {
     let paused: Bool
     let completed: Bool
+    let resting: Bool
     let leftEyeWinking: Bool
     let rightEyeWinking: Bool
 
@@ -198,10 +200,10 @@ private struct MrSmilesFace: View {
                         endPoint: .bottomTrailing,
                     ))
 
-                eye(paused: paused, completed: completed, winking: leftEyeWinking, side: side)
+                eye(paused: paused, completed: completed, resting: resting, winking: leftEyeWinking, side: side)
                     .position(x: side * 0.34, y: side * 0.38)
 
-                eye(paused: paused, completed: completed, winking: rightEyeWinking, side: side)
+                eye(paused: paused, completed: completed, resting: resting, winking: rightEyeWinking, side: side)
                     .position(x: side * 0.66, y: side * 0.38)
 
                 MrSmilesMouth()
@@ -212,11 +214,15 @@ private struct MrSmilesFace: View {
     }
 
     @ViewBuilder
-    private func eye(paused: Bool, completed: Bool, winking: Bool, side: CGFloat) -> some View {
+    private func eye(paused: Bool, completed: Bool, resting: Bool, winking: Bool, side: CGFloat) -> some View {
         if completed {
             MrSmilesHeart()
                 .fill(MrSmilesPalette.ink)
                 .frame(width: side * 0.175, height: side * 0.16)
+        } else if resting {
+            MrSmilesStar()
+                .fill(MrSmilesPalette.ink)
+                .frame(width: side * 0.175, height: side * 0.175)
         } else if paused {
             Capsule()
                 .fill(MrSmilesPalette.ink)
@@ -230,6 +236,27 @@ private struct MrSmilesFace: View {
                 .fill(MrSmilesPalette.ink)
                 .frame(width: side * 0.105, height: side * 0.105)
         }
+    }
+}
+
+private struct MrSmilesStar: Shape {
+    func path(in rect: CGRect) -> Path {
+        let center = CGPoint(x: rect.midX, y: rect.midY)
+        let outer = min(rect.width, rect.height) / 2
+        let inner = outer * 0.42
+        var path = Path()
+        for index in 0..<10 {
+            let angle = Double(index) * .pi / 5 - .pi / 2
+            let radius = index.isMultiple(of: 2) ? outer : inner
+            let point = CGPoint(x: center.x + CGFloat(cos(angle)) * radius, y: center.y + CGFloat(sin(angle)) * radius)
+            if index == 0 {
+                path.move(to: point)
+            } else {
+                path.addLine(to: point)
+            }
+        }
+        path.closeSubpath()
+        return path
     }
 }
 

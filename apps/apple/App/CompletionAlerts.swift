@@ -40,6 +40,9 @@ private final class SystemCompletionNotificationCenter: CompletionNotificationCe
 @MainActor
 final class CompletionAlerts: NSObject, UNUserNotificationCenterDelegate {
     static let notificationIdentifier = "littlewhile.timer.complete"
+    static let focusIdentifier = "littlewhile.timer.focus"
+
+    private static let identifiers = [focusIdentifier, notificationIdentifier]
 
     private let center: any CompletionNotificationCenter
     private let now: () -> Date
@@ -65,7 +68,7 @@ final class CompletionAlerts: NSObject, UNUserNotificationCenterDelegate {
         isEnabled = enabled
         generation += 1
         shouldRequestPermission = shouldRequestPermission || requestPermission
-        center.removePendingNotificationRequests(withIdentifiers: [Self.notificationIdentifier])
+        center.removePendingNotificationRequests(withIdentifiers: Self.identifiers)
 
         guard !isSynchronizing else { return }
 
@@ -87,7 +90,7 @@ final class CompletionAlerts: NSObject, UNUserNotificationCenterDelegate {
     }
 
     private func schedule(run: FocusRun, generation currentGeneration: Int) async {
-        center.removePendingNotificationRequests(withIdentifiers: [Self.notificationIdentifier])
+        center.removePendingNotificationRequests(withIdentifiers: Self.identifiers)
         guard isEnabled, run.isRunning, run.remaining(at: now()) > 0 else { return }
 
         let status = await center.authorizationStatus()
@@ -113,18 +116,34 @@ final class CompletionAlerts: NSObject, UNUserNotificationCenterDelegate {
 
         guard currentGeneration == generation, isAuthorized else { return }
 
-        let remaining = run.remaining(at: now())
-        guard remaining > 0 else { return }
+        let sampledAt = now()
+        let totalRemaining = run.remaining(at: sampledAt)
+        guard totalRemaining > 0 else { return }
+
+        if run.restSeconds > 0 {
+            let focusRemaining = run.focusRemaining(at: sampledAt)
+            if focusRemaining > 0 {
+                let focus = UNMutableNotificationContent()
+                focus.title = "Focus is up"
+                focus.body = "Time for a rest."
+                focus.sound = .default
+                try? await center.add(UNNotificationRequest(
+                    identifier: Self.focusIdentifier,
+                    content: focus,
+                    trigger: UNTimeIntervalNotificationTrigger(timeInterval: max(1, focusRemaining), repeats: false),
+                ))
+                guard currentGeneration == generation else { return }
+            }
+        }
 
         let content = UNMutableNotificationContent()
         content.title = "Time’s up"
         content.body = "A little while, well spent."
         content.sound = .default
-        let request = UNNotificationRequest(
+        try? await center.add(UNNotificationRequest(
             identifier: Self.notificationIdentifier,
             content: content,
-            trigger: UNTimeIntervalNotificationTrigger(timeInterval: max(1, remaining), repeats: false),
-        )
-        try? await center.add(request)
+            trigger: UNTimeIntervalNotificationTrigger(timeInterval: max(1, totalRemaining), repeats: false),
+        ))
     }
 }

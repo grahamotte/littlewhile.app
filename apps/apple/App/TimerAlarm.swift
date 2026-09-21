@@ -12,6 +12,11 @@ enum TimerAlarmAuthorization {
     case authorized
 }
 
+enum TimerAlarmPhase: Equatable, Sendable {
+    case focus
+    case rest
+}
+
 struct TimerAlarmRecord {
     enum State {
         case scheduled
@@ -30,7 +35,7 @@ protocol TimerAlarmManager: AnyObject {
 
     func requestAuthorization() async throws -> TimerAlarmAuthorization
     func alarms() throws -> [TimerAlarmRecord]
-    func schedule(id: UUID, deadline: Date) async throws
+    func schedule(id: UUID, deadline: Date, runID: UUID, phase: TimerAlarmPhase) async throws
     func cancel(id: UUID) throws
 }
 
@@ -111,8 +116,9 @@ final class TimerAlarm {
         guard authorization != .denied else { return .unavailable }
         guard let alarms = try? manager.alarms() else { return .uncertain }
 
+        let ownedIDs = [run.id, run.restAlarmID]
         var cancellationFailed = false
-        for alarm in alarms where alarm.id != run.id {
+        for alarm in alarms where !ownedIDs.contains(alarm.id) {
             do {
                 try manager.cancel(id: alarm.id)
             } catch {
@@ -121,92 +127,156 @@ final class TimerAlarm {
         }
         guard !cancellationFailed else { return .uncertain }
 
-        let existing = alarms.first { $0.id == run.id }
         let date = now()
+        let existing = alarms.filter { ownedIDs.contains($0.id) }
         if run.isComplete(at: date) {
-            if let existing {
-                if existing.state == .alerting {
-                    return .scheduled
-                }
-                if existing.state == .scheduled, existing.deadline == nil {
-                    return .scheduled
-                }
-                if existing.state == .scheduled, let deadline = existing.deadline, deadline <= date {
-                    return .scheduled
-                }
-                do {
-                    try manager.cancel(id: existing.id)
-                } catch {
-                    return .uncertain
-                }
-            }
-            return .unavailable
+            return finishCompleted(existing: existing, at: date, manager: manager)
         }
 
         guard run.isRunning else {
-            if let existing {
-                do {
-                    try manager.cancel(id: existing.id)
-                } catch {
-                    return .uncertain
-                }
-            }
-            return .unavailable
+            return cancelOwned(existing: existing, manager: manager)
         }
 
-        if existing?.state == .alerting {
+        let scheduleDate = now()
+        let neededAlarms = needed(run: run, at: scheduleDate)
+        guard !neededAlarms.isEmpty else { return .unavailable }
+
+        if neededAlarms.allSatisfy({ item in
+            existing.contains { $0.id == item.id && $0.state == .alerting }
+        }) {
             return .scheduled
         }
 
         if authorization != .authorized {
             let tryScheduleAnyway = promptCompleted && authorization == .notDetermined
             if !tryScheduleAnyway {
-                return existing == nil ? .unavailable : .uncertain
+                return existing.isEmpty ? .unavailable : .uncertain
             }
         }
 
-        let scheduleDate = now()
-        let remaining = run.remaining(at: scheduleDate)
-        guard remaining > 0 else { return .unavailable }
-        let deadline = scheduleDate.addingTimeInterval(remaining)
+        return await ensure(
+            neededAlarms,
+            existing: existing,
+            runID: run.id,
+            manager: manager,
+        )
+    }
 
-        if let existing, existing.state == .scheduled {
-            if existing.deadline == nil {
-                return .scheduled
-            }
-            if let existingDeadline = existing.deadline,
-               abs(existingDeadline.timeIntervalSince(deadline)) < 0.5 {
-                return .scheduled
+    private func needed(run: FocusRun, at date: Date) -> [(id: UUID, deadline: Date, phase: TimerAlarmPhase)] {
+        guard run.isRunning, !run.isComplete(at: date) else { return [] }
+        var alarms: [(id: UUID, deadline: Date, phase: TimerAlarmPhase)] = []
+        let focusRemaining = run.focusRemaining(at: date)
+        if focusRemaining > 0 {
+            alarms.append((run.id, date.addingTimeInterval(focusRemaining), .focus))
+        }
+        if run.restSeconds > 0 {
+            let totalRemaining = run.remaining(at: date)
+            if totalRemaining > 0 {
+                alarms.append((run.restAlarmID, date.addingTimeInterval(totalRemaining), .rest))
             }
         }
+        return alarms
+    }
 
-        if let existing {
+    private func finishCompleted(
+        existing: [TimerAlarmRecord],
+        at date: Date,
+        manager: any TimerAlarmManager,
+    ) -> TimerAlarmCoverage {
+        var covered = false
+        for alarm in existing {
+            if alarm.state == .alerting {
+                covered = true
+                continue
+            }
+            if alarm.state == .scheduled, alarm.deadline == nil {
+                covered = true
+                continue
+            }
+            if alarm.state == .scheduled, let deadline = alarm.deadline, deadline <= date {
+                covered = true
+                continue
+            }
             do {
-                try manager.cancel(id: existing.id)
+                try manager.cancel(id: alarm.id)
+            } catch {
+                return .uncertain
+            }
+        }
+        return covered ? .scheduled : .unavailable
+    }
+
+    private func cancelOwned(existing: [TimerAlarmRecord], manager: any TimerAlarmManager) -> TimerAlarmCoverage {
+        for alarm in existing {
+            do {
+                try manager.cancel(id: alarm.id)
+            } catch {
+                return .uncertain
+            }
+        }
+        return .unavailable
+    }
+
+    private func ensure(
+        _ neededAlarms: [(id: UUID, deadline: Date, phase: TimerAlarmPhase)],
+        existing: [TimerAlarmRecord],
+        runID: UUID,
+        manager: any TimerAlarmManager,
+    ) async -> TimerAlarmCoverage {
+        let neededIDs = Set(neededAlarms.map(\.id))
+        for alarm in existing where !neededIDs.contains(alarm.id) {
+            if alarm.state == .alerting { continue }
+            do {
+                try manager.cancel(id: alarm.id)
             } catch {
                 return .uncertain
             }
         }
 
-        do {
-            try await manager.schedule(id: run.id, deadline: deadline)
-            return .scheduled
-        } catch {
-            guard let remainingAlarms = try? manager.alarms() else { return .uncertain }
-            if remainingAlarms.isEmpty {
-                return .unavailable
+        for needed in neededAlarms {
+            let existingAlarm = existing.first { $0.id == needed.id }
+            if existingAlarm?.state == .alerting {
+                continue
             }
-            if remainingAlarms.count == 1, let alarm = remainingAlarms.first, alarm.id == run.id {
-                if alarm.state == .alerting {
-                    return .scheduled
+            if let existingAlarm, existingAlarm.state == .scheduled {
+                if existingAlarm.deadline == nil {
+                    continue
                 }
-                if alarm.state == .scheduled, let recordedDeadline = alarm.deadline,
-                   abs(recordedDeadline.timeIntervalSince(deadline)) < 0.5 {
-                    return .scheduled
+                if let existingDeadline = existingAlarm.deadline,
+                   abs(existingDeadline.timeIntervalSince(needed.deadline)) < 0.5 {
+                    continue
                 }
             }
-            return .uncertain
+            if let existingAlarm {
+                do {
+                    try manager.cancel(id: existingAlarm.id)
+                } catch {
+                    return .uncertain
+                }
+            }
+            do {
+                try await manager.schedule(id: needed.id, deadline: needed.deadline, runID: runID, phase: needed.phase)
+            } catch {
+                guard let remainingAlarms = try? manager.alarms() else { return .uncertain }
+                if remainingAlarms.isEmpty {
+                    return .unavailable
+                }
+                if remainingAlarms.allSatisfy({ neededIDs.contains($0.id) }),
+                   remainingAlarms.contains(where: { alarm in
+                       alarm.id == needed.id && (
+                           alarm.state == .alerting
+                               || (
+                                   alarm.state == .scheduled
+                                       && alarm.deadline.map { abs($0.timeIntervalSince(needed.deadline)) < 0.5 } == true
+                               )
+                       )
+                   }) {
+                    continue
+                }
+                return .uncertain
+            }
         }
+        return .scheduled
     }
 }
 
@@ -245,8 +315,9 @@ private final class SystemTimerAlarmManager: TimerAlarmManager {
         }
     }
 
-    func schedule(id: UUID, deadline: Date) async throws {
+    func schedule(id: UUID, deadline: Date, runID: UUID, phase: TimerAlarmPhase) async throws {
         let title: LocalizedStringResource = "Time is up"
+        let countdownTitle: LocalizedStringResource = phase == .rest ? "Rest" : "Focus"
         let alert: AlarmPresentation.Alert
         if #available(iOS 26.1, *) {
             alert = AlarmPresentation.Alert(title: title)
@@ -259,20 +330,20 @@ private final class SystemTimerAlarmManager: TimerAlarmManager {
         let attributes = AlarmAttributes(
             presentation: AlarmPresentation(
                 alert: alert,
-                countdown: AlarmPresentation.Countdown(title: "Focus"),
+                countdown: AlarmPresentation.Countdown(title: countdownTitle),
                 paused: AlarmPresentation.Paused(
                     title: "Paused",
                     resumeButton: AlarmButton(text: "Resume", textColor: .white, systemImageName: "play.fill"),
                 ),
             ),
-            metadata: FocusAlarmMetadata(runID: id),
+            metadata: FocusAlarmMetadata(runID: runID),
             tintColor: Color(red: 0.76, green: 0.42, blue: 0.28),
         )
         let remaining = max(1, deadline.timeIntervalSince(Date()))
         let configuration = AlarmManager.AlarmConfiguration.timer(
             duration: remaining,
             attributes: attributes,
-            stopIntent: StopTimerAlarmIntent(runID: id),
+            stopIntent: StopTimerAlarmIntent(runID: runID),
             sound: .default,
         )
         _ = try await manager.schedule(id: id, configuration: configuration)
