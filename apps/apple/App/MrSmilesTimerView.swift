@@ -265,39 +265,35 @@ struct MrSmilesStar: Shape {
 
 struct MrSmilesHeart: Shape {
     func path(in rect: CGRect) -> Path {
-        let steps = 80
-        let samples: [(Double, Double)] = (0..<steps).map { index in
-            let t = Double(index) / Double(steps) * 2 * .pi
-            let sine = sin(t)
-            let x = 16 * sine * sine * sine
-            let y = 13 * cos(t) - 5 * cos(2 * t) - 2 * cos(3 * t) - cos(4 * t)
-            return (x, y)
-        }
-        let xs = samples.map { $0.0 }
-        let ys = samples.map { $0.1 }
-        guard
-            let xMin = xs.min(),
-            let xMax = xs.max(),
-            let yMin = ys.min(),
-            let yMax = ys.max(),
-            xMax > xMin,
-            yMax > yMin
-        else {
-            return Path()
+        let root2 = CGFloat(2).squareRoot()
+        let unitMinX = 1 - root2
+        let unitMinY = -root2 / 2
+        let unitWidth = 2 * root2
+        let unitHeight = 1 + 3 * root2 / 2
+        let scale = min(rect.width / unitWidth, rect.height / unitHeight)
+        let origin = CGPoint(
+            x: rect.minX + (rect.width - unitWidth * scale) / 2 - unitMinX * scale,
+            y: rect.minY + (rect.height - unitHeight * scale) / 2 - unitMinY * scale,
+        )
+        let rightCenter = CGPoint(x: 1 + root2 / 2, y: 1 - root2 / 2)
+        let leftCenter = CGPoint(x: 1 - root2 / 2, y: 1 - root2 / 2)
+        let steps = 40
+
+        func point(_ x: CGFloat, _ y: CGFloat) -> CGPoint {
+            CGPoint(x: origin.x + x * scale, y: origin.y + y * scale)
         }
 
         var path = Path()
-        for (index, sample) in samples.enumerated() {
-            let point = CGPoint(
-                x: rect.minX + (sample.0 - xMin) / (xMax - xMin) * rect.width,
-                y: rect.minY + (yMax - sample.1) / (yMax - yMin) * rect.height,
-            )
-            if index == 0 {
-                path.move(to: point)
-            } else {
-                path.addLine(to: point)
-            }
+        path.move(to: point(1 + root2, 1))
+        for index in 1...steps {
+            let angle = .pi / 4 + CGFloat(index) / CGFloat(steps) * -.pi
+            path.addLine(to: point(rightCenter.x + cos(angle), rightCenter.y + sin(angle)))
         }
+        for index in 1...steps {
+            let angle = -.pi / 4 + CGFloat(index) / CGFloat(steps) * -.pi
+            path.addLine(to: point(leftCenter.x + cos(angle), leftCenter.y + sin(angle)))
+        }
+        path.addLine(to: point(1, 1 + root2))
         path.closeSubpath()
         return path
     }
