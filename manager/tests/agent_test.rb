@@ -31,6 +31,32 @@ class AgentTest < Minitest::Test
     assert_equal "/tmp/card", payload.dig(:payload, :directory)
   end
 
+  def test_overrides_model_and_variant
+    payload = nil
+    Req.stubs(:call).with do |*args, **kwargs|
+      payload = req_opts(args, kwargs)
+      true
+    end.returns({ sessionId: "ses-1" })
+
+    Agent.start("do the work", model: "anthropic/claude-sonnet-4", variant: "medium")
+
+    assert_equal "anthropic/claude-sonnet-4", payload.dig(:payload, :model)
+    assert_equal "medium", payload.dig(:payload, :variant)
+  end
+
+  def test_falls_back_to_env_when_overrides_blank
+    payload = nil
+    Req.stubs(:call).with do |*args, **kwargs|
+      payload = req_opts(args, kwargs)
+      true
+    end.returns({ sessionId: "ses-1" })
+
+    Agent.start("do the work", model: "", variant: "  ")
+
+    assert_equal "xai/grok-4.6", payload.dig(:payload, :model)
+    assert_equal "high", payload.dig(:payload, :variant)
+  end
+
   def test_omits_variant_when_blank
     ENV["AGENT_VARIANT"] = ""
     payload = nil

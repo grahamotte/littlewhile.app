@@ -2,8 +2,6 @@ class Trigger
   READY = "ready"
   WORKING = "working"
   APPROVED = "approved"
-  COMPLETED = "completed"
-  CANCELED = "canceled"
 
   class << self
     def call
@@ -24,12 +22,6 @@ class Trigger
         when APPROVED
           start_agent(item, merge_prompt(item), directory: Worktree.directory(item))
           puts "merging #{Linear.identifier(item)}"
-        when COMPLETED
-          start_agent(item, archive_prompt(item), directory: Worktree.root)
-          puts "archiving #{Linear.identifier(item)}"
-        when CANCELED
-          start_agent(item, cancel_prompt(item), directory: Worktree.root)
-          puts "canceling #{Linear.identifier(item)}"
         end
       end
     end
@@ -39,7 +31,12 @@ class Trigger
     def start_agent(item, prompt, directory:)
       Linear.tag(item, WORKING)
       begin
-        Agent.start(prompt, directory:)
+        Agent.start(
+          prompt,
+          directory:,
+          model: Linear.model(item),
+          variant: Linear.variant(item),
+        )
       rescue StandardError
         Linear.untag(item, WORKING)
         raise
@@ -79,28 +76,6 @@ class Trigger
         3. Remove any worktrees created for this card.
         4. Move the card to completed.
         5. Remove the working tag.
-      PROMPT
-    end
-
-    def archive_prompt(item)
-      identifier = Linear.identifier(item)
-      <<~PROMPT
-        This Linear issue is completed: #{Linear.url(item)}
-
-        1. Read the card and all comments.
-        2. Create a markdown file at cards/#{identifier}.md containing all prompts, comments, and data from the card. If there are assets like an image, describe and/or transcribe them in the markdown.
-        3. Commit, open a GitHub PR with `gh pr create` using `GITHUB_TOKEN`, and merge it with `gh pr merge`.
-        4. Remove any worktrees created for this card.
-        5. Delete the Linear card.
-      PROMPT
-    end
-
-    def cancel_prompt(item)
-      <<~PROMPT
-        This Linear issue is canceled: #{Linear.url(item)}
-
-        1. Remove any worktrees created for this card.
-        2. Delete the Linear card.
       PROMPT
     end
   end
