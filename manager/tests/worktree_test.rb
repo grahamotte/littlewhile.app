@@ -99,6 +99,38 @@ class WorktreeTest < Minitest::Test
     assert_equal "SECRET=1", File.read(File.join(path, ".env"))
   end
 
+  def test_removes_existing_worktree
+    item = { identifier: "MOTO-17" }
+    path = Worktree.path_for(item)
+    FileUtils.mkdir_p(path)
+    stub_git
+
+    assert Worktree.remove(item)
+
+    assert_includes git_commands, [ "git", "worktree", "remove", "--force", path ]
+    refute Dir.exist?(path)
+  end
+
+  def test_skips_remove_when_missing
+    item = { identifier: "MOTO-17" }
+    stub_git
+
+    refute Worktree.remove(item)
+
+    assert_equal [], git_commands
+  end
+
+  def test_raises_when_remove_fails
+    item = { identifier: "MOTO-17" }
+    path = Worktree.path_for(item)
+    FileUtils.mkdir_p(path)
+    Open3.stubs(:capture3).returns([ "", "locked", status(false) ])
+
+    error = assert_raises(RuntimeError) { Worktree.remove(item) }
+
+    assert_equal "git worktree remove --force #{path} failed: locked", error.message
+  end
+
   def test_directory_uses_existing_worktree
     item = { identifier: "MOTO-17" }
     path = Worktree.path_for(item)
@@ -148,6 +180,8 @@ class WorktreeTest < Minitest::Test
       if args[1] == "worktree" && args[2] == "add"
         path = args[3] == "-b" ? args[5] : args[3]
         FileUtils.mkdir_p(path)
+      elsif args[1] == "worktree" && args[2] == "remove"
+        FileUtils.remove_entry(args.last) if Dir.exist?(args.last)
       end
       true
     end.returns([ "", "", ok ])
