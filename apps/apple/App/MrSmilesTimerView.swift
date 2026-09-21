@@ -5,7 +5,14 @@ private enum MrSmilesPalette {
     static let yellow = Color(red: 1, green: 0.79, blue: 0.18)
     static let highlight = Color(red: 1, green: 0.86, blue: 0.29)
     static let ink = Color(red: 0.20, green: 0.16, blue: 0.09)
+    static let love = Color(red: 0.90, green: 0.14, blue: 0.22)
     static let clock = Color(red: 0.73, green: 0.72, blue: 0.66)
+}
+
+enum MrSmilesEyeMetrics {
+    static let heartWidth: CGFloat = 0.30
+    static let heartHeight: CGFloat = 0.28
+    static let starSize: CGFloat = 0.30
 }
 
 struct MrSmilesTimerView: View {
@@ -217,12 +224,12 @@ private struct MrSmilesFace: View {
     private func eye(paused: Bool, completed: Bool, resting: Bool, winking: Bool, side: CGFloat) -> some View {
         if completed {
             MrSmilesHeart()
-                .fill(MrSmilesPalette.ink)
-                .frame(width: side * 0.175, height: side * 0.16)
+                .fill(MrSmilesPalette.love)
+                .frame(width: side * MrSmilesEyeMetrics.heartWidth, height: side * MrSmilesEyeMetrics.heartHeight)
         } else if resting {
             MrSmilesStar()
                 .fill(MrSmilesPalette.ink)
-                .frame(width: side * 0.175, height: side * 0.175)
+                .frame(width: side * MrSmilesEyeMetrics.starSize, height: side * MrSmilesEyeMetrics.starSize)
         } else if paused {
             Capsule()
                 .fill(MrSmilesPalette.ink)
@@ -239,56 +246,87 @@ private struct MrSmilesFace: View {
     }
 }
 
-private struct MrSmilesStar: Shape {
+struct MrSmilesStar: Shape {
     func path(in rect: CGRect) -> Path {
         let center = CGPoint(x: rect.midX, y: rect.midY)
         let outer = min(rect.width, rect.height) / 2
-        let inner = outer * 0.42
-        var path = Path()
-        for index in 0..<10 {
+        let inner = outer * 0.50
+        let points = (0..<10).map { index -> CGPoint in
             let angle = Double(index) * .pi / 5 - .pi / 2
             let radius = index.isMultiple(of: 2) ? outer : inner
-            let point = CGPoint(x: center.x + CGFloat(cos(angle)) * radius, y: center.y + CGFloat(sin(angle)) * radius)
-            if index == 0 {
-                path.move(to: point)
-            } else {
-                path.addLine(to: point)
-            }
+            return CGPoint(
+                x: center.x + CGFloat(cos(angle)) * radius,
+                y: center.y + CGFloat(sin(angle)) * radius,
+            )
         }
+        return mrSmilesRoundedPolygon(points, cornerRadius: outer * 0.18)
+    }
+}
+
+struct MrSmilesHeart: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let width = rect.width
+        let height = rect.height
+        path.move(to: CGPoint(x: width * 0.42, y: height * 0.76))
+        path.addCurve(
+            to: CGPoint(x: width * 0.06, y: height * 0.38),
+            control1: CGPoint(x: width * 0.24, y: height * 0.66),
+            control2: CGPoint(x: width * 0.00, y: height * 0.54),
+        )
+        path.addCurve(
+            to: CGPoint(x: width * 0.50, y: height * 0.32),
+            control1: CGPoint(x: width * 0.12, y: height * 0.12),
+            control2: CGPoint(x: width * 0.40, y: height * 0.14),
+        )
+        path.addCurve(
+            to: CGPoint(x: width * 0.94, y: height * 0.38),
+            control1: CGPoint(x: width * 0.60, y: height * 0.14),
+            control2: CGPoint(x: width * 0.88, y: height * 0.12),
+        )
+        path.addCurve(
+            to: CGPoint(x: width * 0.58, y: height * 0.76),
+            control1: CGPoint(x: width * 1.00, y: height * 0.54),
+            control2: CGPoint(x: width * 0.76, y: height * 0.66),
+        )
+        path.addQuadCurve(
+            to: CGPoint(x: width * 0.42, y: height * 0.76),
+            control: CGPoint(x: width * 0.50, y: height * 0.88),
+        )
         path.closeSubpath()
         return path
     }
 }
 
-private struct MrSmilesHeart: Shape {
-    func path(in rect: CGRect) -> Path {
-        var path = Path()
-        let width = rect.width
-        let height = rect.height
-        path.move(to: CGPoint(x: width * 0.5, y: height * 0.92))
-        path.addCurve(
-            to: CGPoint(x: width * 0.05, y: height * 0.32),
-            control1: CGPoint(x: width * 0.5, y: height * 0.78),
-            control2: CGPoint(x: width * 0.02, y: height * 0.58),
+func mrSmilesRoundedPolygon(_ points: [CGPoint], cornerRadius: CGFloat) -> Path {
+    var path = Path()
+    guard points.count >= 3 else { return path }
+    for index in 0..<points.count {
+        let previous = points[(index + points.count - 1) % points.count]
+        let current = points[index]
+        let next = points[(index + 1) % points.count]
+        let toPrevious = CGVector(dx: previous.x - current.x, dy: previous.y - current.y)
+        let toNext = CGVector(dx: next.x - current.x, dy: next.y - current.y)
+        let previousLength = hypot(toPrevious.dx, toPrevious.dy)
+        let nextLength = hypot(toNext.dx, toNext.dy)
+        let trim = min(cornerRadius, previousLength * 0.45, nextLength * 0.45)
+        let start = CGPoint(
+            x: current.x + toPrevious.dx / previousLength * trim,
+            y: current.y + toPrevious.dy / previousLength * trim,
         )
-        path.addCurve(
-            to: CGPoint(x: width * 0.5, y: height * 0.28),
-            control1: CGPoint(x: width * 0.08, y: height * 0.04),
-            control2: CGPoint(x: width * 0.38, y: height * 0.04),
+        let end = CGPoint(
+            x: current.x + toNext.dx / nextLength * trim,
+            y: current.y + toNext.dy / nextLength * trim,
         )
-        path.addCurve(
-            to: CGPoint(x: width * 0.95, y: height * 0.32),
-            control1: CGPoint(x: width * 0.62, y: height * 0.04),
-            control2: CGPoint(x: width * 0.92, y: height * 0.04),
-        )
-        path.addCurve(
-            to: CGPoint(x: width * 0.5, y: height * 0.92),
-            control1: CGPoint(x: width * 0.98, y: height * 0.58),
-            control2: CGPoint(x: width * 0.5, y: height * 0.78),
-        )
-        path.closeSubpath()
-        return path
+        if index == 0 {
+            path.move(to: start)
+        } else {
+            path.addLine(to: start)
+        }
+        path.addQuadCurve(to: end, control: current)
     }
+    path.closeSubpath()
+    return path
 }
 
 private struct MrSmilesMouth: Shape {
