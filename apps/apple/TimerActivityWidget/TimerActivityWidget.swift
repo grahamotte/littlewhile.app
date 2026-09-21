@@ -130,12 +130,44 @@ private struct TimerActivityView {
         return context.state.remainingSeconds <= 0
     }
 
+    var isResting: Bool {
+        guard !hasFinished, context.attributes.restSeconds > 0 else { return false }
+        if let deadline = context.state.deadline {
+            return now >= deadline.addingTimeInterval(-Double(context.attributes.restSeconds))
+        }
+        return context.state.remainingSeconds <= Double(context.attributes.restSeconds)
+    }
+
+    var periodSeconds: Int {
+        isResting ? context.attributes.restSeconds : context.attributes.goalSeconds
+    }
+
+    var periodDeadline: Date? {
+        guard let deadline = context.state.deadline else { return nil }
+        if isResting || context.attributes.restSeconds <= 0 {
+            return deadline
+        }
+        return deadline.addingTimeInterval(-Double(context.attributes.restSeconds))
+    }
+
+    var periodRemaining: Double {
+        if let periodDeadline {
+            return max(0, periodDeadline.timeIntervalSince(now))
+        }
+        if isResting {
+            return max(0, context.state.remainingSeconds)
+        }
+        return max(0, context.state.remainingSeconds - Double(context.attributes.restSeconds))
+    }
+
     var statusText: String {
-        hasFinished ? "Time’s up" : (context.state.isPaused ? "Paused" : "Remaining")
+        if hasFinished { return "Time’s up" }
+        if context.state.isPaused { return "Paused" }
+        return isResting ? "Rest" : "Remaining"
     }
 
     var goalText: String {
-        "\(context.attributes.goalSeconds / 60) min"
+        "\(periodSeconds / 60) min"
     }
 
     var brandIcon: some View {
@@ -146,16 +178,16 @@ private struct TimerActivityView {
     var countdown: some View {
         if hasFinished {
             Text("00:00")
-        } else if !context.state.isPaused, let deadline = context.state.deadline {
+        } else if !context.state.isPaused, let periodDeadline {
             Text(
-                timerInterval: deadline.addingTimeInterval(-Double(context.attributes.goalSeconds))...deadline,
+                timerInterval: periodDeadline.addingTimeInterval(-Double(periodSeconds))...periodDeadline,
                 countsDown: true,
                 showsHours: false,
             )
             .contentTransition(.numericText(countsDown: true))
         } else {
             Text(
-                Duration.seconds(max(0, context.state.remainingSeconds).rounded(.up))
+                Duration.seconds(max(0, periodRemaining).rounded(.up))
                     .formatted(.time(pattern: .minuteSecond(padMinuteToLength: 2))),
             )
         }
@@ -165,9 +197,9 @@ private struct TimerActivityView {
     var progress: some View {
         if hasFinished {
             ProgressView(value: 1)
-        } else if !context.state.isPaused, let deadline = context.state.deadline {
+        } else if !context.state.isPaused, let periodDeadline {
             ProgressView(
-                timerInterval: deadline.addingTimeInterval(-Double(context.attributes.goalSeconds))...deadline,
+                timerInterval: periodDeadline.addingTimeInterval(-Double(periodSeconds))...periodDeadline,
                 countsDown: false,
             ) {
                 EmptyView()
@@ -175,7 +207,7 @@ private struct TimerActivityView {
                 EmptyView()
             }
         } else {
-            ProgressView(value: 1 - context.state.remainingSeconds / Double(max(1, context.attributes.goalSeconds)))
+            ProgressView(value: 1 - periodRemaining / Double(max(1, periodSeconds)))
         }
     }
 

@@ -6,15 +6,19 @@ struct RunSettingsView: View {
     @State private var visibleTheme: String?
     @State private var selectedMinute: Int
     @State private var visibleMinute: Int?
+    @State private var selectedRestMinute: Int
+    @State private var visibleRestMinute: Int?
     @State private var didPositionSelectors = false
 
-    let onSet: (Int, String) -> Void
+    let onSet: (Int, Int, String) -> Void
 
-    init(currentRun: FocusRun, onSet: @escaping (Int, String) -> Void) {
+    init(currentRun: FocusRun, onSet: @escaping (Int, Int, String) -> Void) {
         _selectedTheme = State(initialValue: TimerThemes.resolve(currentRun.theme).id)
         _visibleTheme = State(initialValue: nil)
         _selectedMinute = State(initialValue: min(120, max(1, currentRun.goalSeconds / 60)))
         _visibleMinute = State(initialValue: nil)
+        _selectedRestMinute = State(initialValue: min(120, max(0, currentRun.restSeconds / 60)))
+        _visibleRestMinute = State(initialValue: nil)
         self.onSet = onSet
     }
 
@@ -25,7 +29,20 @@ struct RunSettingsView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 36) {
                     themeSelector
-                    minuteSelector
+                    minuteSelector(
+                        title: "Focus",
+                        selected: $selectedMinute,
+                        visible: $visibleMinute,
+                        range: 1...120,
+                        accessibilityLabel: "Focus duration",
+                    )
+                    minuteSelector(
+                        title: "Rest",
+                        selected: $selectedRestMinute,
+                        visible: $visibleRestMinute,
+                        range: 0...120,
+                        accessibilityLabel: "Rest duration",
+                    )
                 }
                 .padding(.top, 20)
                 .padding(.bottom, 32)
@@ -35,7 +52,7 @@ struct RunSettingsView: View {
         .background(.background)
         .safeAreaInset(edge: .bottom, spacing: 0) {
             GlassActionButton(title: "Set") {
-                onSet(selectedMinute, selectedTheme)
+                onSet(selectedMinute, selectedRestMinute, selectedTheme)
                 dismiss()
             }
             .frame(maxWidth: .infinity)
@@ -45,11 +62,13 @@ struct RunSettingsView: View {
             .background(.background)
         }
         .sensoryFeedback(.selection, trigger: selectedMinute)
+        .sensoryFeedback(.selection, trigger: selectedRestMinute)
         .sensoryFeedback(.selection, trigger: selectedTheme)
         .task {
             await Task.yield()
             visibleTheme = selectedTheme
             visibleMinute = selectedMinute
+            visibleRestMinute = selectedRestMinute
             await Task.yield()
             didPositionSelectors = true
         }
@@ -142,15 +161,21 @@ struct RunSettingsView: View {
         }
     }
 
-    private var minuteSelector: some View {
+    private func minuteSelector(
+        title: String,
+        selected: Binding<Int>,
+        visible: Binding<Int?>,
+        range: ClosedRange<Int>,
+        accessibilityLabel: String,
+    ) -> some View {
         VStack(spacing: 18) {
-            Text("Duration")
+            Text(title)
                 .font(.headline)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, 28)
 
             HStack(alignment: .firstTextBaseline, spacing: 8) {
-                Text("\(selectedMinute)")
+                Text("\(selected.wrappedValue)")
                     .font(.system(size: 52, weight: .light, design: .rounded))
                     .monospacedDigit()
                     .contentTransition(.numericText())
@@ -163,7 +188,7 @@ struct RunSettingsView: View {
             GeometryReader { geometry in
                 ScrollView(.horizontal) {
                     HStack(alignment: .top, spacing: 0) {
-                        ForEach(1...120, id: \.self) { minute in
+                        ForEach(Array(range), id: \.self) { minute in
                             Capsule()
                                 .fill(.primary.opacity(minute.isMultiple(of: 5) ? 0.5 : 0.18))
                                 .frame(width: 1.5, height: minute.isMultiple(of: 5) ? 38 : 22)
@@ -185,10 +210,10 @@ struct RunSettingsView: View {
                 .contentMargins(.horizontal, max(0, geometry.size.width / 2 - 7), for: .scrollContent)
                 .scrollIndicators(.hidden)
                 .scrollTargetBehavior(.viewAligned(limitBehavior: .never))
-                .scrollPosition(id: $visibleMinute, anchor: .center)
-                .onChange(of: visibleMinute) { _, minute in
+                .scrollPosition(id: visible, anchor: .center)
+                .onChange(of: visible.wrappedValue) { _, minute in
                     if didPositionSelectors, let minute {
-                        selectedMinute = minute
+                        selected.wrappedValue = minute
                     }
                 }
                 .overlay(alignment: .top) {
@@ -213,17 +238,17 @@ struct RunSettingsView: View {
             }
             .frame(height: 74)
             .accessibilityElement(children: .ignore)
-            .accessibilityLabel("Timer duration")
-            .accessibilityValue("\(selectedMinute) \(selectedMinute == 1 ? "minute" : "minutes")")
+            .accessibilityLabel(accessibilityLabel)
+            .accessibilityValue("\(selected.wrappedValue) \(selected.wrappedValue == 1 ? "minute" : "minutes")")
             .accessibilityHint("Swipe up or down to adjust by one minute")
             .accessibilityAdjustableAction { direction in
                 switch direction {
                 case .increment:
-                    selectedMinute = min(120, selectedMinute + 1)
-                    visibleMinute = selectedMinute
+                    selected.wrappedValue = min(range.upperBound, selected.wrappedValue + 1)
+                    visible.wrappedValue = selected.wrappedValue
                 case .decrement:
-                    selectedMinute = max(1, selectedMinute - 1)
-                    visibleMinute = selectedMinute
+                    selected.wrappedValue = max(range.lowerBound, selected.wrappedValue - 1)
+                    visible.wrappedValue = selected.wrappedValue
                 @unknown default:
                     break
                 }

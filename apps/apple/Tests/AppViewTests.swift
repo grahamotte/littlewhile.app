@@ -10,5 +10,6 @@ final class AppViewTests: XCTestCase {
         let store = RunStore(defaults: defaults)
         _ = AppView(store: store)
         XCTAssertEqual(store.currentRun.goalSeconds, 1500)
+        XCTAssertEqual(store.currentRun.restSeconds, 300)
     }
 }

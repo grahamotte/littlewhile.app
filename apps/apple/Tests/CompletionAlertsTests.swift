@@ -26,8 +26,26 @@ final class CompletionAlertsTests: XCTestCase {
         XCTAssertNotNil(request?.content.sound)
         XCTAssertEqual(trigger?.timeInterval, 260)
         XCTAssertEqual(trigger?.repeats, false)
+        XCTAssertEqual(center.addedRequests.count, 1)
         XCTAssertTrue(center.delegate === alerts)
         XCTAssertEqual(center.authorizationRequests, 0)
+    }
+
+    @MainActor
+    func testSchedulesFocusAndCompletionNotificationsForARestRun() async {
+        let center = NotificationCenterBoundary()
+        let alerts = CompletionAlerts(center: center, now: { self.date })
+        let run = FocusRun(startedAt: date, goalSeconds: 300, restSeconds: 60, resumedAt: date)
+
+        await alerts.synchronize(run: run)
+
+        XCTAssertEqual(center.addedRequests.map(\.identifier), ["littlewhile.timer.focus", "littlewhile.timer.complete"])
+        XCTAssertEqual(
+            center.addedRequests.map { ($0.trigger as? UNTimeIntervalNotificationTrigger)?.timeInterval },
+            [300, 360],
+        )
+        XCTAssertEqual(center.addedRequests[0].content.title, "Focus is up")
+        XCTAssertEqual(center.addedRequests[1].content.title, "Time’s up")
     }
 
     @MainActor
@@ -45,7 +63,7 @@ final class CompletionAlertsTests: XCTestCase {
             await alerts.synchronize(run: stoppedRun)
 
             XCTAssertNil(center.pendingRequest)
-            XCTAssertEqual(center.removedIdentifiers.last, ["littlewhile.timer.complete"])
+            XCTAssertEqual(center.removedIdentifiers.last, ["littlewhile.timer.focus", "littlewhile.timer.complete"])
         }
     }
 

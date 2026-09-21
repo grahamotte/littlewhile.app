@@ -75,7 +75,7 @@ struct RunHistoryView: View {
                         Text(Duration.seconds(run.elapsed(at: date)).formatted(.time(pattern: .minuteSecond)))
                             .font(.system(.title2, design: .rounded, weight: .medium))
 
-                        Text("of \(Duration.seconds(run.goalSeconds).formatted(.time(pattern: .minuteSecond)))")
+                        Text("of \(Duration.seconds(run.totalSeconds).formatted(.time(pattern: .minuteSecond)))")
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                     }

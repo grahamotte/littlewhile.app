@@ -29,8 +29,9 @@ final class RunStore {
             for record in records {
                 guard var run = record.run, identifiers.insert(run.id).inserted else { continue }
                 run.goalSeconds = min(120 * 60, max(60, run.goalSeconds))
+                run.restSeconds = min(120 * 60, max(0, run.restSeconds))
                 run.progressSeconds = run.progressSeconds.isFinite
-                    ? min(TimeInterval(run.goalSeconds), max(0, run.progressSeconds))
+                    ? min(TimeInterval(run.totalSeconds), max(0, run.progressSeconds))
                     : 0
                 if run.theme.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || run.theme == "standard" {
                     run.theme = "boring"
@@ -57,7 +58,7 @@ final class RunStore {
                 restored.append(run)
             }
         }
-        runs = restored.isEmpty ? [FocusRun(createdAt: now)] : restored
+        runs = restored.isEmpty ? [FocusRun(createdAt: now, restSeconds: 5 * 60)] : restored
         refresh(at: now)
     }
 
@@ -89,7 +90,7 @@ final class RunStore {
 
     func refresh(at date: Date = .now) {
         if currentRun.isComplete(at: date) {
-            runs[0].progressSeconds = TimeInterval(currentRun.goalSeconds)
+            runs[0].progressSeconds = TimeInterval(currentRun.totalSeconds)
             runs[0].resumedAt = nil
         } else if let resumedAt = currentRun.resumedAt, date >= resumedAt {
             runs[0].progressSeconds = currentRun.elapsed(at: date)
@@ -98,11 +99,16 @@ final class RunStore {
         save()
     }
 
-    func createRun(minutes: Int, theme: String, at date: Date = .now) {
+    func createRun(minutes: Int, theme: String, restMinutes: Int = 0, at date: Date = .now) {
         pause(at: date)
         let selectedTheme = theme.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "boring" : theme
         runs.insert(
-            FocusRun(createdAt: date, goalSeconds: min(120, max(1, minutes)) * 60, theme: selectedTheme),
+            FocusRun(
+                createdAt: date,
+                goalSeconds: min(120, max(1, minutes)) * 60,
+                restSeconds: min(120, max(0, restMinutes)) * 60,
+                theme: selectedTheme,
+            ),
             at: 0,
         )
         save()
@@ -111,7 +117,15 @@ final class RunStore {
     func restart(at date: Date = .now) {
         let previous = currentRun
         pause(at: date)
-        runs.insert(FocusRun(createdAt: date, goalSeconds: previous.goalSeconds, theme: previous.theme), at: 0)
+        runs.insert(
+            FocusRun(
+                createdAt: date,
+                goalSeconds: previous.goalSeconds,
+                restSeconds: previous.restSeconds,
+                theme: previous.theme,
+            ),
+            at: 0,
+        )
         save()
     }
 
