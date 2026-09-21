@@ -1,5 +1,5 @@
 {
-  "build": "0.2.3",
+  "build": "0.3.0",
   "contactEmail": "go@graham.lol",
   "contactFirstName": "Graham",
   "contactLastName": "Otte",
@@ -48,6 +48,6 @@
       }
     }
   },
-  "version": "0.2.3",
-  "whatsNew": "Focus with configurable timers, persistent history, completion alerts, Live Activities, the interactive Mr Smiles theme with heart eyes when the timer ends, and a new timer-face app icon."
+  "version": "0.3.0",
+  "whatsNew": "Focus with customizable focus and rest timers, persistent history, completion alerts, Live Activities, the interactive Mr Smiles theme with heart eyes when the timer ends, and a new timer-face app icon."
 }
