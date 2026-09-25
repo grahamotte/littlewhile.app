@@ -11,9 +11,14 @@ private enum MrSmilesPalette {
 
 enum MrSmilesEyeMetrics {
     static let heartWidth: CGFloat = 0.30
-    static let heartHeight: CGFloat = 0.33
+    static let heartHeight: CGFloat = 0.26
+    static let heartLobeSpread: CGFloat = 0.93
+    static let heartTipRounding: CGFloat = 0.15
     static let starSize: CGFloat = 0.30
-    static let inwardRotation: CGFloat = 16
+    static let starInnerRatio: CGFloat = 0.52
+    static let starTipRounding: CGFloat = 0.18
+    static let starValleyRounding: CGFloat = 0.08
+    static let inwardRotation: CGFloat = 12
     static let symbolX: CGFloat = 0.30
     static let openX: CGFloat = 0.34
 
@@ -273,81 +278,77 @@ struct MrSmilesStar: Shape {
     func path(in rect: CGRect) -> Path {
         let center = CGPoint(x: rect.midX, y: rect.midY)
         let outer = min(rect.width, rect.height) / 2
-        let inner = outer * 0.50
+        let inner = outer * MrSmilesEyeMetrics.starInnerRatio
         let points = (0..<10).map { index -> CGPoint in
             let angle = Double(index) * .pi / 5 - .pi / 2
             let radius = index.isMultiple(of: 2) ? outer : inner
             return CGPoint(
                 x: center.x + CGFloat(cos(angle)) * radius,
-                y: center.y + CGFloat(sin(angle)) * radius,
+                y: center.y + CGFloat(sin(angle)) * radius + outer * 0.1,
             )
         }
-        return mrSmilesRoundedPolygon(points, cornerRadius: outer * 0.18)
+        let radii = (0..<10).map { index in
+            outer * (index.isMultiple(of: 2) ? MrSmilesEyeMetrics.starTipRounding : MrSmilesEyeMetrics.starValleyRounding)
+        }
+        return mrSmilesRoundedPolygon(points, cornerRadii: radii)
     }
 }
 
 struct MrSmilesHeart: Shape {
     func path(in rect: CGRect) -> Path {
-        let root2 = CGFloat(2).squareRoot()
-        let unitMinX = 1 - root2
-        let unitMinY = -root2 / 2
-        let unitWidth = 2 * root2
-        let unitHeight = 1 + 3 * root2 / 2
+        let spread = MrSmilesEyeMetrics.heartLobeSpread
+        let tipY = spread + CGFloat(2).squareRoot()
+        let unitWidth = 2 * (spread + 1)
+        let unitHeight = tipY + 1
         let scale = min(rect.width / unitWidth, rect.height / unitHeight)
         let origin = CGPoint(
-            x: rect.minX + (rect.width - unitWidth * scale) / 2 - unitMinX * scale,
-            y: rect.minY + (rect.height - unitHeight * scale) / 2 - unitMinY * scale,
+            x: rect.midX,
+            y: rect.midY - (unitHeight / 2 - 1) * scale,
         )
-        let rightCenter = CGPoint(x: 1 + root2 / 2, y: 1 - root2 / 2)
-        let leftCenter = CGPoint(x: 1 - root2 / 2, y: 1 - root2 / 2)
-        let steps = 40
 
         func point(_ x: CGFloat, _ y: CGFloat) -> CGPoint {
             CGPoint(x: origin.x + x * scale, y: origin.y + y * scale)
         }
 
+        let cleftY = -(1 - spread * spread).squareRoot()
+        let cleftAngle = atan2(cleftY, spread)
+        let lobeSweep = Angle.radians(Double(.pi * 5 / 4 + cleftAngle))
         var path = Path()
-        path.move(to: point(1 + root2, 1))
-        for index in 1...steps {
-            let angle = .pi / 4 + CGFloat(index) / CGFloat(steps) * -.pi
-            path.addLine(to: point(rightCenter.x + cos(angle), rightCenter.y + sin(angle)))
-        }
-        for index in 1...steps {
-            let angle = -.pi / 4 + CGFloat(index) / CGFloat(steps) * -.pi
-            path.addLine(to: point(leftCenter.x + cos(angle), leftCenter.y + sin(angle)))
-        }
-        path.addLine(to: point(1, 1 + root2))
+        path.move(to: point(0, cleftY))
+        path.addRelativeArc(
+            center: point(spread, 0),
+            radius: scale,
+            startAngle: .radians(Double(.pi - cleftAngle)),
+            delta: lobeSweep,
+        )
+        path.addArc(
+            tangent1End: point(0, tipY),
+            tangent2End: point(-spread - CGFloat(0.5).squareRoot(), CGFloat(0.5).squareRoot()),
+            radius: scale * MrSmilesEyeMetrics.heartTipRounding,
+        )
+        path.addRelativeArc(
+            center: point(-spread, 0),
+            radius: scale,
+            startAngle: .radians(.pi * 3 / 4),
+            delta: lobeSweep,
+        )
         path.closeSubpath()
         return path
     }
 }
 
-func mrSmilesRoundedPolygon(_ points: [CGPoint], cornerRadius: CGFloat) -> Path {
+func mrSmilesRoundedPolygon(_ points: [CGPoint], cornerRadii: [CGFloat]) -> Path {
     var path = Path()
-    guard points.count >= 3 else { return path }
+    guard points.count >= 3, cornerRadii.count == points.count else { return path }
+    let last = points[points.count - 1]
+    let first = points[0]
+    path.move(to: CGPoint(x: (last.x + first.x) / 2, y: (last.y + first.y) / 2))
     for index in 0..<points.count {
-        let previous = points[(index + points.count - 1) % points.count]
-        let current = points[index]
-        let next = points[(index + 1) % points.count]
-        let toPrevious = CGVector(dx: previous.x - current.x, dy: previous.y - current.y)
-        let toNext = CGVector(dx: next.x - current.x, dy: next.y - current.y)
-        let previousLength = hypot(toPrevious.dx, toPrevious.dy)
-        let nextLength = hypot(toNext.dx, toNext.dy)
-        let trim = min(cornerRadius, previousLength * 0.45, nextLength * 0.45)
-        let start = CGPoint(
-            x: current.x + toPrevious.dx / previousLength * trim,
-            y: current.y + toPrevious.dy / previousLength * trim,
+        path.addArc(
+            tangent1End: points[index],
+            tangent2End: points[(index + 1) % points.count],
+            radius: cornerRadii[index],
         )
-        let end = CGPoint(
-            x: current.x + toNext.dx / nextLength * trim,
-            y: current.y + toNext.dy / nextLength * trim,
-        )
-        if index == 0 {
-            path.move(to: start)
-        } else {
-            path.addLine(to: start)
-        }
-        path.addQuadCurve(to: end, control: current)
     }
     path.closeSubpath()
     return path

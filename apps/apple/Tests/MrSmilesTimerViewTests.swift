@@ -10,6 +10,7 @@ final class MrSmilesTimerViewTests: XCTestCase {
         XCTAssertGreaterThan(MrSmilesEyeMetrics.heartHeight, 0.21)
         XCTAssertGreaterThan(MrSmilesEyeMetrics.starSize, 0.21)
         XCTAssertEqual(MrSmilesEyeMetrics.heartWidth, MrSmilesEyeMetrics.starSize, accuracy: 0.0001)
+        XCTAssertGreaterThan(MrSmilesEyeMetrics.heartWidth, MrSmilesEyeMetrics.heartHeight)
     }
 
     func testHeartAndStarEyesTiltInwardAndSitFartherApart() {
@@ -25,20 +26,26 @@ final class MrSmilesTimerViewTests: XCTestCase {
         )
     }
 
-    func testHeartHasCircularLobesAndARightAnglePoint() {
+    func testHeartHasWideCircularLobesAndARightAnglePoint() {
         let path = MrSmilesHeart().path(in: rect).cgPath
+        let bounds = path.boundingBoxOfPath
 
+        XCTAssertEqual(bounds.width / bounds.height, 1.16, accuracy: 0.03)
         XCTAssertTrue(path.contains(CGPoint(x: 50, y: 50)))
-        XCTAssertTrue(path.contains(CGPoint(x: 28, y: 32)))
-        XCTAssertTrue(path.contains(CGPoint(x: 72, y: 32)))
-        XCTAssertTrue(path.contains(CGPoint(x: 28, y: 18)))
-        XCTAssertTrue(path.contains(CGPoint(x: 72, y: 18)))
-        XCTAssertTrue(path.contains(CGPoint(x: 50, y: 92)))
-        XCTAssertTrue(path.contains(CGPoint(x: 42, y: 78)))
+        XCTAssertTrue(path.contains(CGPoint(x: 26, y: 32)))
+        XCTAssertTrue(path.contains(CGPoint(x: 74, y: 32)))
+        XCTAssertTrue(path.contains(CGPoint(x: 26, y: 12)))
+        XCTAssertTrue(path.contains(CGPoint(x: 74, y: 12)))
+        XCTAssertTrue(path.contains(CGPoint(x: 2, y: 32)))
+        XCTAssertTrue(path.contains(CGPoint(x: 98, y: 32)))
+        XCTAssertTrue(path.contains(CGPoint(x: 50, y: 85)))
+        XCTAssertTrue(path.contains(CGPoint(x: 40, y: 70)))
+        XCTAssertFalse(path.contains(CGPoint(x: 50, y: 18)))
         XCTAssertFalse(path.contains(CGPoint(x: 50, y: 4)))
+        XCTAssertFalse(path.contains(CGPoint(x: 50, y: 97)))
         XCTAssertFalse(path.contains(CGPoint(x: 2, y: 2)))
-        XCTAssertFalse(path.contains(CGPoint(x: 18, y: 78)))
-        XCTAssertFalse(path.contains(CGPoint(x: 82, y: 78)))
+        XCTAssertFalse(path.contains(CGPoint(x: 15, y: 75)))
+        XCTAssertFalse(path.contains(CGPoint(x: 85, y: 75)))
     }
 
     func testStarHasChubbyRoundedPoints() {
@@ -47,6 +54,8 @@ final class MrSmilesTimerViewTests: XCTestCase {
         XCTAssertTrue(path.contains(CGPoint(x: 50, y: 50)))
         XCTAssertTrue(path.contains(CGPoint(x: 50, y: 22)))
         XCTAssertTrue(path.contains(CGPoint(x: 56, y: 22)))
+        XCTAssertTrue(path.contains(CGPoint(x: 50, y: 18)))
+        XCTAssertFalse(path.contains(CGPoint(x: 50, y: 12)))
         XCTAssertFalse(path.contains(CGPoint(x: 50, y: 1)))
         XCTAssertFalse(path.contains(CGPoint(x: 50, y: 99)))
         XCTAssertFalse(path.contains(CGPoint(x: 1, y: 50)))
@@ -60,7 +69,7 @@ final class MrSmilesTimerViewTests: XCTestCase {
             CGPoint(x: 100, y: 100),
             CGPoint(x: 0, y: 100),
         ]
-        let path = mrSmilesRoundedPolygon(square, cornerRadius: 20).cgPath
+        let path = mrSmilesRoundedPolygon(square, cornerRadii: [20, 20, 20, 20]).cgPath
 
         XCTAssertTrue(path.contains(CGPoint(x: 50, y: 50)))
         XCTAssertFalse(path.contains(CGPoint(x: 1, y: 1)))
