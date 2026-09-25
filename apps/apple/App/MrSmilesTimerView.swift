@@ -5,7 +5,31 @@ private enum MrSmilesPalette {
     static let yellow = Color(red: 1, green: 0.79, blue: 0.18)
     static let highlight = Color(red: 1, green: 0.86, blue: 0.29)
     static let ink = Color(red: 0.20, green: 0.16, blue: 0.09)
+    static let love = Color(red: 0.90, green: 0.14, blue: 0.22)
     static let clock = Color(red: 0.73, green: 0.72, blue: 0.66)
+}
+
+enum MrSmilesEyeMetrics {
+    static let heartWidth: CGFloat = 0.30
+    static let heartHeight: CGFloat = 0.26
+    static let heartLobeSpread: CGFloat = 0.93
+    static let heartTipRounding: CGFloat = 0.15
+    static let starSize: CGFloat = 0.30
+    static let starInnerRatio: CGFloat = 0.52
+    static let starTipRounding: CGFloat = 0.18
+    static let starValleyRounding: CGFloat = 0.08
+    static let inwardRotation: CGFloat = 12
+    static let symbolX: CGFloat = 0.30
+    static let openX: CGFloat = 0.34
+
+    static func centerX(isLeft: Bool, symbol: Bool) -> CGFloat {
+        let x = symbol ? symbolX : openX
+        return isLeft ? x : 1 - x
+    }
+
+    static func rotation(isLeft: Bool) -> CGFloat {
+        isLeft ? -inwardRotation : inwardRotation
+    }
 }
 
 struct MrSmilesTimerView: View {
@@ -200,11 +224,9 @@ private struct MrSmilesFace: View {
                         endPoint: .bottomTrailing,
                     ))
 
-                eye(paused: paused, completed: completed, resting: resting, winking: leftEyeWinking, side: side)
-                    .position(x: side * 0.34, y: side * 0.38)
+                eye(paused: paused, completed: completed, resting: resting, winking: leftEyeWinking, isLeft: true, side: side)
 
-                eye(paused: paused, completed: completed, resting: resting, winking: rightEyeWinking, side: side)
-                    .position(x: side * 0.66, y: side * 0.38)
+                eye(paused: paused, completed: completed, resting: resting, winking: rightEyeWinking, isLeft: false, side: side)
 
                 MrSmilesMouth()
                     .stroke(MrSmilesPalette.ink, style: StrokeStyle(lineWidth: side * 0.043, lineCap: .round))
@@ -214,81 +236,122 @@ private struct MrSmilesFace: View {
     }
 
     @ViewBuilder
-    private func eye(paused: Bool, completed: Bool, resting: Bool, winking: Bool, side: CGFloat) -> some View {
+    private func eye(paused: Bool, completed: Bool, resting: Bool, winking: Bool, isLeft: Bool, side: CGFloat) -> some View {
+        let symbol = completed || resting
+        let position = CGPoint(
+            x: side * MrSmilesEyeMetrics.centerX(isLeft: isLeft, symbol: symbol),
+            y: side * 0.38,
+        )
+
         if completed {
             MrSmilesHeart()
-                .fill(MrSmilesPalette.ink)
-                .frame(width: side * 0.175, height: side * 0.16)
+                .fill(MrSmilesPalette.love)
+                .frame(width: side * MrSmilesEyeMetrics.heartWidth, height: side * MrSmilesEyeMetrics.heartHeight)
+                .rotationEffect(.degrees(MrSmilesEyeMetrics.rotation(isLeft: isLeft)))
+                .position(position)
         } else if resting {
             MrSmilesStar()
                 .fill(MrSmilesPalette.ink)
-                .frame(width: side * 0.175, height: side * 0.175)
+                .frame(width: side * MrSmilesEyeMetrics.starSize, height: side * MrSmilesEyeMetrics.starSize)
+                .rotationEffect(.degrees(MrSmilesEyeMetrics.rotation(isLeft: isLeft)))
+                .position(position)
         } else if paused {
             Capsule()
                 .fill(MrSmilesPalette.ink)
                 .frame(width: side * 0.072, height: side * 0.24)
+                .position(position)
         } else if winking {
             MrSmilesWink()
                 .stroke(MrSmilesPalette.ink, style: StrokeStyle(lineWidth: side * 0.042, lineCap: .round))
                 .frame(width: side * 0.16, height: side * 0.075)
+                .position(position)
         } else {
             Circle()
                 .fill(MrSmilesPalette.ink)
                 .frame(width: side * 0.105, height: side * 0.105)
+                .position(position)
         }
     }
 }
 
-private struct MrSmilesStar: Shape {
+struct MrSmilesStar: Shape {
     func path(in rect: CGRect) -> Path {
         let center = CGPoint(x: rect.midX, y: rect.midY)
         let outer = min(rect.width, rect.height) / 2
-        let inner = outer * 0.42
-        var path = Path()
-        for index in 0..<10 {
+        let inner = outer * MrSmilesEyeMetrics.starInnerRatio
+        let points = (0..<10).map { index -> CGPoint in
             let angle = Double(index) * .pi / 5 - .pi / 2
             let radius = index.isMultiple(of: 2) ? outer : inner
-            let point = CGPoint(x: center.x + CGFloat(cos(angle)) * radius, y: center.y + CGFloat(sin(angle)) * radius)
-            if index == 0 {
-                path.move(to: point)
-            } else {
-                path.addLine(to: point)
-            }
+            return CGPoint(
+                x: center.x + CGFloat(cos(angle)) * radius,
+                y: center.y + CGFloat(sin(angle)) * radius + outer * 0.1,
+            )
         }
+        let radii = (0..<10).map { index in
+            outer * (index.isMultiple(of: 2) ? MrSmilesEyeMetrics.starTipRounding : MrSmilesEyeMetrics.starValleyRounding)
+        }
+        return mrSmilesRoundedPolygon(points, cornerRadii: radii)
+    }
+}
+
+struct MrSmilesHeart: Shape {
+    func path(in rect: CGRect) -> Path {
+        let spread = MrSmilesEyeMetrics.heartLobeSpread
+        let tipY = spread + CGFloat(2).squareRoot()
+        let unitWidth = 2 * (spread + 1)
+        let unitHeight = tipY + 1
+        let scale = min(rect.width / unitWidth, rect.height / unitHeight)
+        let origin = CGPoint(
+            x: rect.midX,
+            y: rect.midY - (unitHeight / 2 - 1) * scale,
+        )
+
+        func point(_ x: CGFloat, _ y: CGFloat) -> CGPoint {
+            CGPoint(x: origin.x + x * scale, y: origin.y + y * scale)
+        }
+
+        let cleftY = -(1 - spread * spread).squareRoot()
+        let cleftAngle = atan2(cleftY, spread)
+        let lobeSweep = Angle.radians(Double(.pi * 5 / 4 + cleftAngle))
+        var path = Path()
+        path.move(to: point(0, cleftY))
+        path.addRelativeArc(
+            center: point(spread, 0),
+            radius: scale,
+            startAngle: .radians(Double(.pi - cleftAngle)),
+            delta: lobeSweep,
+        )
+        path.addArc(
+            tangent1End: point(0, tipY),
+            tangent2End: point(-spread - CGFloat(0.5).squareRoot(), CGFloat(0.5).squareRoot()),
+            radius: scale * MrSmilesEyeMetrics.heartTipRounding,
+        )
+        path.addRelativeArc(
+            center: point(-spread, 0),
+            radius: scale,
+            startAngle: .radians(.pi * 3 / 4),
+            delta: lobeSweep,
+        )
         path.closeSubpath()
         return path
     }
 }
 
-private struct MrSmilesHeart: Shape {
-    func path(in rect: CGRect) -> Path {
-        var path = Path()
-        let width = rect.width
-        let height = rect.height
-        path.move(to: CGPoint(x: width * 0.5, y: height * 0.92))
-        path.addCurve(
-            to: CGPoint(x: width * 0.05, y: height * 0.32),
-            control1: CGPoint(x: width * 0.5, y: height * 0.78),
-            control2: CGPoint(x: width * 0.02, y: height * 0.58),
+func mrSmilesRoundedPolygon(_ points: [CGPoint], cornerRadii: [CGFloat]) -> Path {
+    var path = Path()
+    guard points.count >= 3, cornerRadii.count == points.count else { return path }
+    let last = points[points.count - 1]
+    let first = points[0]
+    path.move(to: CGPoint(x: (last.x + first.x) / 2, y: (last.y + first.y) / 2))
+    for index in 0..<points.count {
+        path.addArc(
+            tangent1End: points[index],
+            tangent2End: points[(index + 1) % points.count],
+            radius: cornerRadii[index],
         )
-        path.addCurve(
-            to: CGPoint(x: width * 0.5, y: height * 0.28),
-            control1: CGPoint(x: width * 0.08, y: height * 0.04),
-            control2: CGPoint(x: width * 0.38, y: height * 0.04),
-        )
-        path.addCurve(
-            to: CGPoint(x: width * 0.95, y: height * 0.32),
-            control1: CGPoint(x: width * 0.62, y: height * 0.04),
-            control2: CGPoint(x: width * 0.92, y: height * 0.04),
-        )
-        path.addCurve(
-            to: CGPoint(x: width * 0.5, y: height * 0.92),
-            control1: CGPoint(x: width * 0.98, y: height * 0.58),
-            control2: CGPoint(x: width * 0.5, y: height * 0.78),
-        )
-        path.closeSubpath()
-        return path
     }
+    path.closeSubpath()
+    return path
 }
 
 private struct MrSmilesMouth: Shape {
